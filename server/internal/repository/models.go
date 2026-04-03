@@ -14,11 +14,14 @@ import (
 type BookingStatus string
 
 const (
-	BookingStatusCreated   BookingStatus = "created"
-	BookingStatusReceived  BookingStatus = "received"
-	BookingStatusWashing   BookingStatus = "washing"
-	BookingStatusReady     BookingStatus = "ready"
-	BookingStatusCollected BookingStatus = "collected"
+	BookingStatusCreated        BookingStatus = "created"
+	BookingStatusDroppedOff     BookingStatus = "dropped_off"
+	BookingStatusWashing        BookingStatus = "washing"
+	BookingStatusWashDone       BookingStatus = "wash_done"
+	BookingStatusDrying         BookingStatus = "drying"
+	BookingStatusDryDone        BookingStatus = "dry_done"
+	BookingStatusReadyForPickup BookingStatus = "ready_for_pickup"
+	BookingStatusCollected      BookingStatus = "collected"
 )
 
 func (e *BookingStatus) Scan(src interface{}) error {
@@ -56,13 +59,96 @@ func (ns NullBookingStatus) Value() (driver.Value, error) {
 	return string(ns.BookingStatus), nil
 }
 
+type MachineRunStatus string
+
+const (
+	MachineRunStatusRunning   MachineRunStatus = "running"
+	MachineRunStatusFinished  MachineRunStatus = "finished"
+	MachineRunStatusCancelled MachineRunStatus = "cancelled"
+)
+
+func (e *MachineRunStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = MachineRunStatus(s)
+	case string:
+		*e = MachineRunStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for MachineRunStatus: %T", src)
+	}
+	return nil
+}
+
+type NullMachineRunStatus struct {
+	MachineRunStatus MachineRunStatus `json:"machine_run_status"`
+	Valid            bool             `json:"valid"` // Valid is true if MachineRunStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullMachineRunStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.MachineRunStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.MachineRunStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullMachineRunStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.MachineRunStatus), nil
+}
+
+type MachineType string
+
+const (
+	MachineTypeWasher MachineType = "washer"
+	MachineTypeDryer  MachineType = "dryer"
+)
+
+func (e *MachineType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = MachineType(s)
+	case string:
+		*e = MachineType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for MachineType: %T", src)
+	}
+	return nil
+}
+
+type NullMachineType struct {
+	MachineType MachineType `json:"machine_type"`
+	Valid       bool        `json:"valid"` // Valid is true if MachineType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullMachineType) Scan(value interface{}) error {
+	if value == nil {
+		ns.MachineType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.MachineType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullMachineType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.MachineType), nil
+}
+
 type UserRole string
 
 const (
-	UserRoleStudent UserRole = "student"
-	UserRoleStaff   UserRole = "staff"
-	UserRoleWarden  UserRole = "warden"
-	UserRoleAdmin   UserRole = "admin"
+	UserRoleStudent      UserRole = "student"
+	UserRoleLaundryStaff UserRole = "laundry_staff"
 )
 
 func (e *UserRole) Scan(src interface{}) error {
@@ -100,107 +186,183 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 	return string(ns.UserRole), nil
 }
 
-type Bag struct {
-	ID        pgtype.UUID      `json:"id"`
-	StudentID pgtype.UUID      `json:"student_id"`
-	QrCode    string           `json:"qr_code"`
-	IsActive  pgtype.Bool      `json:"is_active"`
-	CreatedAt pgtype.Timestamp `json:"created_at"`
+type WorkflowEventType string
+
+const (
+	WorkflowEventTypeBagInitialized WorkflowEventType = "bag_initialized"
+	WorkflowEventTypeQrRotated      WorkflowEventType = "qr_rotated"
+	WorkflowEventTypeReceived       WorkflowEventType = "received"
+	WorkflowEventTypeWashStarted    WorkflowEventType = "wash_started"
+	WorkflowEventTypeWashFinished   WorkflowEventType = "wash_finished"
+	WorkflowEventTypeDryStarted     WorkflowEventType = "dry_started"
+	WorkflowEventTypeDryFinished    WorkflowEventType = "dry_finished"
+	WorkflowEventTypeMarkedReady    WorkflowEventType = "marked_ready"
+	WorkflowEventTypeCollected      WorkflowEventType = "collected"
+	WorkflowEventTypeActionRejected WorkflowEventType = "action_rejected"
+)
+
+func (e *WorkflowEventType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = WorkflowEventType(s)
+	case string:
+		*e = WorkflowEventType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for WorkflowEventType: %T", src)
+	}
+	return nil
 }
 
-type Block struct {
-	ID        pgtype.UUID      `json:"id"`
-	Name      string           `json:"name"`
-	CreatedAt pgtype.Timestamp `json:"created_at"`
+type NullWorkflowEventType struct {
+	WorkflowEventType WorkflowEventType `json:"workflow_event_type"`
+	Valid             bool              `json:"valid"` // Valid is true if WorkflowEventType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullWorkflowEventType) Scan(value interface{}) error {
+	if value == nil {
+		ns.WorkflowEventType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.WorkflowEventType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullWorkflowEventType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.WorkflowEventType), nil
+}
+
+type Bag struct {
+	ID            pgtype.UUID        `json:"id"`
+	StudentID     pgtype.UUID        `json:"student_id"`
+	QrVersion     int32              `json:"qr_version"`
+	IsRevoked     bool               `json:"is_revoked"`
+	LastRotatedAt pgtype.Timestamptz `json:"last_rotated_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Booking struct {
-	ID               pgtype.UUID      `json:"id"`
-	StudentID        pgtype.UUID      `json:"student_id"`
-	BagID            pgtype.UUID      `json:"bag_id"`
-	Status           BookingStatus    `json:"status"`
-	DropTime         pgtype.Timestamp `json:"drop_time"`
-	WashCompleteTime pgtype.Timestamp `json:"wash_complete_time"`
-	PickupTime       pgtype.Timestamp `json:"pickup_time"`
-	CreatedAt        pgtype.Timestamp `json:"created_at"`
-	UpdatedAt        pgtype.Timestamp `json:"updated_at"`
-}
-
-type Floor struct {
-	ID          pgtype.UUID      `json:"id"`
-	BlockID     pgtype.UUID      `json:"block_id"`
-	FloorNumber int32            `json:"floor_number"`
-	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	ID              pgtype.UUID        `json:"id"`
+	StudentID       pgtype.UUID        `json:"student_id"`
+	BagID           pgtype.UUID        `json:"bag_id"`
+	Status          BookingStatus      `json:"status"`
+	ReceivedAt      pgtype.Timestamptz `json:"received_at"`
+	WashStartedAt   pgtype.Timestamptz `json:"wash_started_at"`
+	WashFinishedAt  pgtype.Timestamptz `json:"wash_finished_at"`
+	DryStartedAt    pgtype.Timestamptz `json:"dry_started_at"`
+	DryFinishedAt   pgtype.Timestamptz `json:"dry_finished_at"`
+	ReadyAt         pgtype.Timestamptz `json:"ready_at"`
+	CollectedAt     pgtype.Timestamptz `json:"collected_at"`
+	RowNo           pgtype.Text        `json:"row_no"`
+	Notes           pgtype.Text        `json:"notes"`
+	LastActorUserID pgtype.UUID        `json:"last_actor_user_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
 type LaundryService struct {
-	ID        pgtype.UUID      `json:"id"`
-	Name      string           `json:"name"`
-	Phone     pgtype.Text      `json:"phone"`
-	CreatedAt pgtype.Timestamp `json:"created_at"`
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	Phone     pgtype.Text        `json:"phone"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type LaundryStaff struct {
-	ID               pgtype.UUID      `json:"id"`
-	UserID           pgtype.UUID      `json:"user_id"`
-	Name             string           `json:"name"`
-	Phone            pgtype.Text      `json:"phone"`
-	LaundryServiceID pgtype.UUID      `json:"laundry_service_id"`
-	CreatedAt        pgtype.Timestamp `json:"created_at"`
+	ID               pgtype.UUID        `json:"id"`
+	UserID           pgtype.UUID        `json:"user_id"`
+	Name             string             `json:"name"`
+	Phone            string             `json:"phone"`
+	LaundryServiceID pgtype.UUID        `json:"laundry_service_id"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
-type Room struct {
-	ID         pgtype.UUID      `json:"id"`
-	FloorID    pgtype.UUID      `json:"floor_id"`
-	RoomNumber int32            `json:"room_number"`
-	CreatedAt  pgtype.Timestamp `json:"created_at"`
+type Machine struct {
+	ID               pgtype.UUID        `json:"id"`
+	LaundryServiceID pgtype.UUID        `json:"laundry_service_id"`
+	Code             string             `json:"code"`
+	MachineType      MachineType        `json:"machine_type"`
+	IsActive         bool               `json:"is_active"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
-type ScheduleInstance struct {
-	ID         pgtype.UUID      `json:"id"`
-	TemplateID pgtype.UUID      `json:"template_id"`
-	Month      pgtype.Int4      `json:"month"`
-	Year       pgtype.Int4      `json:"year"`
-	IsActive   pgtype.Bool      `json:"is_active"`
-	CreatedAt  pgtype.Timestamp `json:"created_at"`
+type MachineRun struct {
+	ID              pgtype.UUID        `json:"id"`
+	BookingID       pgtype.UUID        `json:"booking_id"`
+	BagID           pgtype.UUID        `json:"bag_id"`
+	MachineID       pgtype.UUID        `json:"machine_id"`
+	MachineType     MachineType        `json:"machine_type"`
+	Status          MachineRunStatus   `json:"status"`
+	StartedByUserID pgtype.UUID        `json:"started_by_user_id"`
+	EndedByUserID   pgtype.UUID        `json:"ended_by_user_id"`
+	StartedAt       pgtype.Timestamptz `json:"started_at"`
+	EndedAt         pgtype.Timestamptz `json:"ended_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
-type ScheduleTemplate struct {
-	ID              pgtype.UUID      `json:"id"`
-	BlockID         pgtype.UUID      `json:"block_id"`
-	RoomStart       pgtype.Int4      `json:"room_start"`
-	RoomEnd         pgtype.Int4      `json:"room_end"`
-	DayOfWeek       pgtype.Int4      `json:"day_of_week"`
-	DropStartTime   pgtype.Time      `json:"drop_start_time"`
-	DropEndTime     pgtype.Time      `json:"drop_end_time"`
-	PickupStartTime pgtype.Time      `json:"pickup_start_time"`
-	PickupEndTime   pgtype.Time      `json:"pickup_end_time"`
-	CreatedAt       pgtype.Timestamp `json:"created_at"`
+type Notification struct {
+	ID              pgtype.UUID        `json:"id"`
+	RecipientUserID pgtype.UUID        `json:"recipient_user_id"`
+	BookingID       pgtype.UUID        `json:"booking_id"`
+	Title           string             `json:"title"`
+	Message         string             `json:"message"`
+	Payload         []byte             `json:"payload"`
+	IsRead          bool               `json:"is_read"`
+	ReadAt          pgtype.Timestamptz `json:"read_at"`
+	SentAt          pgtype.Timestamptz `json:"sent_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+type PushToken struct {
+	ID            pgtype.UUID        `json:"id"`
+	UserID        pgtype.UUID        `json:"user_id"`
+	Token         string             `json:"token"`
+	Platform      string             `json:"platform"`
+	DeviceName    pgtype.Text        `json:"device_name"`
+	IsActive      bool               `json:"is_active"`
+	LastSeenAt    pgtype.Timestamptz `json:"last_seen_at"`
+	InvalidatedAt pgtype.Timestamptz `json:"invalidated_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Student struct {
-	ID        pgtype.UUID      `json:"id"`
-	UserID    pgtype.UUID      `json:"user_id"`
-	Name      string           `json:"name"`
-	Phone     pgtype.Text      `json:"phone"`
-	RoomID    pgtype.UUID      `json:"room_id"`
-	CreatedAt pgtype.Timestamp `json:"created_at"`
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	RegNo     string             `json:"reg_no"`
+	Name      string             `json:"name"`
+	Block     pgtype.Text        `json:"block"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type User struct {
-	ID        pgtype.UUID      `json:"id"`
-	Email     string           `json:"email"`
-	Password  string           `json:"password"`
-	Role      UserRole         `json:"role"`
-	CreatedAt pgtype.Timestamp `json:"created_at"`
-	UpdatedAt pgtype.Timestamp `json:"updated_at"`
+	ID        pgtype.UUID        `json:"id"`
+	Email     string             `json:"email"`
+	Password  string             `json:"password"`
+	Role      UserRole           `json:"role"`
+	IsActive  bool               `json:"is_active"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
-type Warden struct {
-	ID        pgtype.UUID      `json:"id"`
-	UserID    pgtype.UUID      `json:"user_id"`
-	Name      string           `json:"name"`
-	Phone     pgtype.Text      `json:"phone"`
-	BlockID   pgtype.UUID      `json:"block_id"`
-	CreatedAt pgtype.Timestamp `json:"created_at"`
+type WorkflowEvent struct {
+	ID                pgtype.UUID        `json:"id"`
+	BookingID         pgtype.UUID        `json:"booking_id"`
+	BagID             pgtype.UUID        `json:"bag_id"`
+	StudentID         pgtype.UUID        `json:"student_id"`
+	MachineID         pgtype.UUID        `json:"machine_id"`
+	TriggeredByUserID pgtype.UUID        `json:"triggered_by_user_id"`
+	TriggeredRole     NullUserRole       `json:"triggered_role"`
+	EventType         WorkflowEventType  `json:"event_type"`
+	Metadata          []byte             `json:"metadata"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }

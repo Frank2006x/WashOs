@@ -7,6 +7,7 @@ import (
 	"Frank2006x/washos/internal/router"
 	"context"
 	"log"
+	"os"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
@@ -15,7 +16,18 @@ import (
 )
 
 func main() {
-	godotenv.Load()
+	envPaths := []string{
+		".env",       // when running from server/
+		"../.env",    // when running from server/cmd/
+		"../../.env", // when running from server/cmd/api/
+	}
+	for _, p := range envPaths {
+		if _, err := os.Stat(p); err == nil {
+			if err := godotenv.Load(p); err == nil {
+				break
+			}
+		}
+	}
 	app := fiber.New()
 	app.Use(cors.New())
 	app.Use(logger.New())
@@ -30,6 +42,7 @@ func main() {
 	Handler := handler.NewHandler(queries)
 
 	router.SetupAuthRoutes(app, Handler)
+	router.SetupStudentRoutes(app, Handler)
 
 	app.Get("/ping", func(c fiber.Ctx) error {
 		return c.SendString("pong")
