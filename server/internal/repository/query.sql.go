@@ -11,71 +11,460 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password, role, created_at, updated_at
-FROM users
-WHERE email = $1
-LIMIT 1
+const createBooking = `-- name: CreateBooking :one
+
+INSERT INTO bookings (student_id, bag_id, status)
+VALUES ($1, $2, 'created')
+RETURNING id, student_id, bag_id, status, received_at, wash_started_at, wash_finished_at, dry_started_at, dry_finished_at, ready_at, collected_at, row_no, notes, last_actor_user_id, created_at, updated_at
 `
 
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByEmail, email)
-	var i User
+type CreateBookingParams struct {
+	StudentID pgtype.UUID `json:"student_id"`
+	BagID     pgtype.UUID `json:"bag_id"`
+}
+
+// =========================
+// Booking Queries
+// =========================
+func (q *Queries) CreateBooking(ctx context.Context, arg CreateBookingParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, createBooking, arg.StudentID, arg.BagID)
+	var i Booking
 	err := row.Scan(
 		&i.ID,
-		&i.Email,
-		&i.Password,
-		&i.Role,
+		&i.StudentID,
+		&i.BagID,
+		&i.Status,
+		&i.ReceivedAt,
+		&i.WashStartedAt,
+		&i.WashFinishedAt,
+		&i.DryStartedAt,
+		&i.DryFinishedAt,
+		&i.ReadyAt,
+		&i.CollectedAt,
+		&i.RowNo,
+		&i.Notes,
+		&i.LastActorUserID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const getStudentByUserID = `-- name: GetStudentByUserID :one
-SELECT id, user_id, name, phone, room_id, created_at
-FROM students
-WHERE user_id = $1
-LIMIT 1
+const createLaundryStaff = `-- name: CreateLaundryStaff :one
+INSERT INTO laundry_staff (user_id, name, phone, laundry_service_id)
+VALUES ($1, $2, $3, $4)
+RETURNING id, user_id, name, phone, laundry_service_id, created_at, updated_at
 `
 
-func (q *Queries) GetStudentByUserID(ctx context.Context, userID pgtype.UUID) (Student, error) {
-	row := q.db.QueryRow(ctx, getStudentByUserID, userID)
-	var i Student
+type CreateLaundryStaffParams struct {
+	UserID           pgtype.UUID `json:"user_id"`
+	Name             string      `json:"name"`
+	Phone            string      `json:"phone"`
+	LaundryServiceID pgtype.UUID `json:"laundry_service_id"`
+}
+
+func (q *Queries) CreateLaundryStaff(ctx context.Context, arg CreateLaundryStaffParams) (LaundryStaff, error) {
+	row := q.db.QueryRow(ctx, createLaundryStaff,
+		arg.UserID,
+		arg.Name,
+		arg.Phone,
+		arg.LaundryServiceID,
+	)
+	var i LaundryStaff
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Name,
 		&i.Phone,
-		&i.RoomID,
+		&i.LaundryServiceID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createMachineRun = `-- name: CreateMachineRun :one
+INSERT INTO machine_runs (booking_id, bag_id, machine_id, machine_type, started_by_user_id)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, booking_id, bag_id, machine_id, machine_type, status, started_by_user_id, ended_by_user_id, started_at, ended_at, created_at, updated_at
+`
+
+type CreateMachineRunParams struct {
+	BookingID       pgtype.UUID `json:"booking_id"`
+	BagID           pgtype.UUID `json:"bag_id"`
+	MachineID       pgtype.UUID `json:"machine_id"`
+	MachineType     MachineType `json:"machine_type"`
+	StartedByUserID pgtype.UUID `json:"started_by_user_id"`
+}
+
+func (q *Queries) CreateMachineRun(ctx context.Context, arg CreateMachineRunParams) (MachineRun, error) {
+	row := q.db.QueryRow(ctx, createMachineRun,
+		arg.BookingID,
+		arg.BagID,
+		arg.MachineID,
+		arg.MachineType,
+		arg.StartedByUserID,
+	)
+	var i MachineRun
+	err := row.Scan(
+		&i.ID,
+		&i.BookingID,
+		&i.BagID,
+		&i.MachineID,
+		&i.MachineType,
+		&i.Status,
+		&i.StartedByUserID,
+		&i.EndedByUserID,
+		&i.StartedAt,
+		&i.EndedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createNotification = `-- name: CreateNotification :one
+INSERT INTO notifications (recipient_user_id, booking_id, title, message, payload)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, recipient_user_id, booking_id, title, message, payload, is_read, read_at, sent_at, created_at
+`
+
+type CreateNotificationParams struct {
+	RecipientUserID pgtype.UUID `json:"recipient_user_id"`
+	BookingID       pgtype.UUID `json:"booking_id"`
+	Title           string      `json:"title"`
+	Message         string      `json:"message"`
+	Payload         []byte      `json:"payload"`
+}
+
+func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error) {
+	row := q.db.QueryRow(ctx, createNotification,
+		arg.RecipientUserID,
+		arg.BookingID,
+		arg.Title,
+		arg.Message,
+		arg.Payload,
+	)
+	var i Notification
+	err := row.Scan(
+		&i.ID,
+		&i.RecipientUserID,
+		&i.BookingID,
+		&i.Title,
+		&i.Message,
+		&i.Payload,
+		&i.IsRead,
+		&i.ReadAt,
+		&i.SentAt,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
-const getWardenByUserID = `-- name: GetWardenByUserID :one
-SELECT id, user_id, name, phone, block_id, created_at
-FROM wardens
-WHERE user_id = $1
-LIMIT 1
+const createStudent = `-- name: CreateStudent :one
+INSERT INTO students (user_id, reg_no, name)
+VALUES ($1, $2, $3)
+RETURNING id, user_id, reg_no, name, created_at, updated_at
 `
 
-func (q *Queries) GetWardenByUserID(ctx context.Context, userID pgtype.UUID) (Warden, error) {
-	row := q.db.QueryRow(ctx, getWardenByUserID, userID)
-	var i Warden
+type CreateStudentParams struct {
+	UserID pgtype.UUID `json:"user_id"`
+	RegNo  string      `json:"reg_no"`
+	Name   string      `json:"name"`
+}
+
+func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error) {
+	row := q.db.QueryRow(ctx, createStudent, arg.UserID, arg.RegNo, arg.Name)
+	var i Student
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
+		&i.RegNo,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (email, password, role)
+VALUES ($1, $2, $3)
+RETURNING id, email, password, role, is_active, created_at, updated_at
+`
+
+type CreateUserParams struct {
+	Email    string   `json:"email"`
+	Password string   `json:"password"`
+	Role     UserRole `json:"role"`
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, createUser, arg.Email, arg.Password, arg.Role)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Password,
+		&i.Role,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createWorkflowEvent = `-- name: CreateWorkflowEvent :one
+
+INSERT INTO workflow_events (
+  booking_id,
+  bag_id,
+  student_id,
+  machine_id,
+  triggered_by_user_id,
+  triggered_role,
+  event_type,
+  metadata
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, booking_id, bag_id, student_id, machine_id, triggered_by_user_id, triggered_role, event_type, metadata, created_at
+`
+
+type CreateWorkflowEventParams struct {
+	BookingID         pgtype.UUID       `json:"booking_id"`
+	BagID             pgtype.UUID       `json:"bag_id"`
+	StudentID         pgtype.UUID       `json:"student_id"`
+	MachineID         pgtype.UUID       `json:"machine_id"`
+	TriggeredByUserID pgtype.UUID       `json:"triggered_by_user_id"`
+	TriggeredRole     NullUserRole      `json:"triggered_role"`
+	EventType         WorkflowEventType `json:"event_type"`
+	Metadata          []byte            `json:"metadata"`
+}
+
+// =========================
+// Workflow Event Queries
+// =========================
+func (q *Queries) CreateWorkflowEvent(ctx context.Context, arg CreateWorkflowEventParams) (WorkflowEvent, error) {
+	row := q.db.QueryRow(ctx, createWorkflowEvent,
+		arg.BookingID,
+		arg.BagID,
+		arg.StudentID,
+		arg.MachineID,
+		arg.TriggeredByUserID,
+		arg.TriggeredRole,
+		arg.EventType,
+		arg.Metadata,
+	)
+	var i WorkflowEvent
+	err := row.Scan(
+		&i.ID,
+		&i.BookingID,
+		&i.BagID,
+		&i.StudentID,
+		&i.MachineID,
+		&i.TriggeredByUserID,
+		&i.TriggeredRole,
+		&i.EventType,
+		&i.Metadata,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const deactivatePushToken = `-- name: DeactivatePushToken :exec
+UPDATE push_tokens
+SET is_active = FALSE,
+    invalidated_at = NOW(),
+    updated_at = NOW()
+WHERE token = $1
+`
+
+func (q *Queries) DeactivatePushToken(ctx context.Context, token string) error {
+	_, err := q.db.Exec(ctx, deactivatePushToken, token)
+	return err
+}
+
+const finishMachineRun = `-- name: FinishMachineRun :one
+UPDATE machine_runs
+SET status = 'finished',
+    ended_by_user_id = $2,
+    ended_at = NOW(),
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, booking_id, bag_id, machine_id, machine_type, status, started_by_user_id, ended_by_user_id, started_at, ended_at, created_at, updated_at
+`
+
+type FinishMachineRunParams struct {
+	ID            pgtype.UUID `json:"id"`
+	EndedByUserID pgtype.UUID `json:"ended_by_user_id"`
+}
+
+func (q *Queries) FinishMachineRun(ctx context.Context, arg FinishMachineRunParams) (MachineRun, error) {
+	row := q.db.QueryRow(ctx, finishMachineRun, arg.ID, arg.EndedByUserID)
+	var i MachineRun
+	err := row.Scan(
+		&i.ID,
+		&i.BookingID,
+		&i.BagID,
+		&i.MachineID,
+		&i.MachineType,
+		&i.Status,
+		&i.StartedByUserID,
+		&i.EndedByUserID,
+		&i.StartedAt,
+		&i.EndedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getBagByID = `-- name: GetBagByID :one
+SELECT id, student_id, qr_version, is_revoked, last_rotated_at, created_at, updated_at
+FROM bags
+WHERE id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetBagByID(ctx context.Context, id pgtype.UUID) (Bag, error) {
+	row := q.db.QueryRow(ctx, getBagByID, id)
+	var i Bag
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.QrVersion,
+		&i.IsRevoked,
+		&i.LastRotatedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getBookingByID = `-- name: GetBookingByID :one
+SELECT id, student_id, bag_id, status, received_at, wash_started_at, wash_finished_at, dry_started_at, dry_finished_at, ready_at, collected_at, row_no, notes, last_actor_user_id, created_at, updated_at
+FROM bookings
+WHERE id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetBookingByID(ctx context.Context, id pgtype.UUID) (Booking, error) {
+	row := q.db.QueryRow(ctx, getBookingByID, id)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.BagID,
+		&i.Status,
+		&i.ReceivedAt,
+		&i.WashStartedAt,
+		&i.WashFinishedAt,
+		&i.DryStartedAt,
+		&i.DryFinishedAt,
+		&i.ReadyAt,
+		&i.CollectedAt,
+		&i.RowNo,
+		&i.Notes,
+		&i.LastActorUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getBookingWorkflowEvents = `-- name: GetBookingWorkflowEvents :many
+SELECT id, booking_id, bag_id, student_id, machine_id, triggered_by_user_id, triggered_role, event_type, metadata, created_at
+FROM workflow_events
+WHERE booking_id = $1
+ORDER BY created_at ASC
+`
+
+func (q *Queries) GetBookingWorkflowEvents(ctx context.Context, bookingID pgtype.UUID) ([]WorkflowEvent, error) {
+	rows, err := q.db.Query(ctx, getBookingWorkflowEvents, bookingID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WorkflowEvent
+	for rows.Next() {
+		var i WorkflowEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.BookingID,
+			&i.BagID,
+			&i.StudentID,
+			&i.MachineID,
+			&i.TriggeredByUserID,
+			&i.TriggeredRole,
+			&i.EventType,
+			&i.Metadata,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFirstLaundryService = `-- name: GetFirstLaundryService :one
+SELECT id, name, phone, created_at, updated_at
+FROM laundry_services
+ORDER BY created_at ASC
+LIMIT 1
+`
+
+func (q *Queries) GetFirstLaundryService(ctx context.Context) (LaundryService, error) {
+	row := q.db.QueryRow(ctx, getFirstLaundryService)
+	var i LaundryService
+	err := row.Scan(
+		&i.ID,
 		&i.Name,
 		&i.Phone,
-		&i.BlockID,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getLatestActiveBookingByBagID = `-- name: GetLatestActiveBookingByBagID :one
+SELECT id, student_id, bag_id, status, received_at, wash_started_at, wash_finished_at, dry_started_at, dry_finished_at, ready_at, collected_at, row_no, notes, last_actor_user_id, created_at, updated_at
+FROM bookings
+WHERE bag_id = $1
+  AND status <> 'collected'
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestActiveBookingByBagID(ctx context.Context, bagID pgtype.UUID) (Booking, error) {
+	row := q.db.QueryRow(ctx, getLatestActiveBookingByBagID, bagID)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.BagID,
+		&i.Status,
+		&i.ReceivedAt,
+		&i.WashStartedAt,
+		&i.WashFinishedAt,
+		&i.DryStartedAt,
+		&i.DryFinishedAt,
+		&i.ReadyAt,
+		&i.CollectedAt,
+		&i.RowNo,
+		&i.Notes,
+		&i.LastActorUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const getLaundryStaffByUserID = `-- name: GetLaundryStaffByUserID :one
-SELECT id, user_id, name, phone, laundry_service_id, created_at
+SELECT id, user_id, name, phone, laundry_service_id, created_at, updated_at
 FROM laundry_staff
 WHERE user_id = $1
 LIMIT 1
@@ -91,6 +480,758 @@ func (q *Queries) GetLaundryStaffByUserID(ctx context.Context, userID pgtype.UUI
 		&i.Phone,
 		&i.LaundryServiceID,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getLaundryStaffUserByPhone = `-- name: GetLaundryStaffUserByPhone :one
+SELECT u.id, u.email, u.password, u.role, u.is_active, u.created_at, u.updated_at
+FROM users u
+JOIN laundry_staff ls ON ls.user_id = u.id
+WHERE ls.phone = $1
+LIMIT 1
+`
+
+// Staff signs in by phone.
+func (q *Queries) GetLaundryStaffUserByPhone(ctx context.Context, phone string) (User, error) {
+	row := q.db.QueryRow(ctx, getLaundryStaffUserByPhone, phone)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Password,
+		&i.Role,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getMachineByID = `-- name: GetMachineByID :one
+SELECT id, laundry_service_id, code, machine_type, is_active, created_at, updated_at
+FROM machines
+WHERE id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetMachineByID(ctx context.Context, id pgtype.UUID) (Machine, error) {
+	row := q.db.QueryRow(ctx, getMachineByID, id)
+	var i Machine
+	err := row.Scan(
+		&i.ID,
+		&i.LaundryServiceID,
+		&i.Code,
+		&i.MachineType,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getRunningMachineRunByMachineID = `-- name: GetRunningMachineRunByMachineID :one
+SELECT id, booking_id, bag_id, machine_id, machine_type, status, started_by_user_id, ended_by_user_id, started_at, ended_at, created_at, updated_at
+FROM machine_runs
+WHERE machine_id = $1
+  AND status = 'running'
+LIMIT 1
+`
+
+func (q *Queries) GetRunningMachineRunByMachineID(ctx context.Context, machineID pgtype.UUID) (MachineRun, error) {
+	row := q.db.QueryRow(ctx, getRunningMachineRunByMachineID, machineID)
+	var i MachineRun
+	err := row.Scan(
+		&i.ID,
+		&i.BookingID,
+		&i.BagID,
+		&i.MachineID,
+		&i.MachineType,
+		&i.Status,
+		&i.StartedByUserID,
+		&i.EndedByUserID,
+		&i.StartedAt,
+		&i.EndedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getStudentBagByStudentID = `-- name: GetStudentBagByStudentID :one
+SELECT id, student_id, qr_version, is_revoked, last_rotated_at, created_at, updated_at
+FROM bags
+WHERE student_id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetStudentBagByStudentID(ctx context.Context, studentID pgtype.UUID) (Bag, error) {
+	row := q.db.QueryRow(ctx, getStudentBagByStudentID, studentID)
+	var i Bag
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.QrVersion,
+		&i.IsRevoked,
+		&i.LastRotatedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getStudentBookings = `-- name: GetStudentBookings :many
+SELECT id, student_id, bag_id, status, received_at, wash_started_at, wash_finished_at, dry_started_at, dry_finished_at, ready_at, collected_at, row_no, notes, last_actor_user_id, created_at, updated_at
+FROM bookings
+WHERE student_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type GetStudentBookingsParams struct {
+	StudentID pgtype.UUID `json:"student_id"`
+	Limit     int32       `json:"limit"`
+	Offset    int32       `json:"offset"`
+}
+
+func (q *Queries) GetStudentBookings(ctx context.Context, arg GetStudentBookingsParams) ([]Booking, error) {
+	rows, err := q.db.Query(ctx, getStudentBookings, arg.StudentID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Booking
+	for rows.Next() {
+		var i Booking
+		if err := rows.Scan(
+			&i.ID,
+			&i.StudentID,
+			&i.BagID,
+			&i.Status,
+			&i.ReceivedAt,
+			&i.WashStartedAt,
+			&i.WashFinishedAt,
+			&i.DryStartedAt,
+			&i.DryFinishedAt,
+			&i.ReadyAt,
+			&i.CollectedAt,
+			&i.RowNo,
+			&i.Notes,
+			&i.LastActorUserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getStudentByUserID = `-- name: GetStudentByUserID :one
+SELECT id, user_id, reg_no, name, created_at, updated_at
+FROM students
+WHERE user_id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetStudentByUserID(ctx context.Context, userID pgtype.UUID) (Student, error) {
+	row := q.db.QueryRow(ctx, getStudentByUserID, userID)
+	var i Student
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.RegNo,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByEmail = `-- name: GetUserByEmail :one
+
+SELECT id, email, password, role, is_active, created_at, updated_at
+FROM users
+WHERE email = $1
+LIMIT 1
+`
+
+// =========================
+// Auth and Profile Queries
+// =========================
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Password,
+		&i.Role,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const initStudentBag = `-- name: InitStudentBag :one
+
+INSERT INTO bags (student_id)
+VALUES ($1)
+ON CONFLICT (student_id)
+DO UPDATE SET updated_at = NOW()
+RETURNING id, student_id, qr_version, is_revoked, last_rotated_at, created_at, updated_at
+`
+
+// =========================
+// Bag Queries
+// =========================
+// One bag per student; idempotent init.
+func (q *Queries) InitStudentBag(ctx context.Context, studentID pgtype.UUID) (Bag, error) {
+	row := q.db.QueryRow(ctx, initStudentBag, studentID)
+	var i Bag
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.QrVersion,
+		&i.IsRevoked,
+		&i.LastRotatedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listMachinesByType = `-- name: ListMachinesByType :many
+
+SELECT id, laundry_service_id, code, machine_type, is_active, created_at, updated_at
+FROM machines
+WHERE machine_type = $1
+  AND is_active = TRUE
+ORDER BY code ASC
+`
+
+// =========================
+// Machine and Run Queries
+// =========================
+func (q *Queries) ListMachinesByType(ctx context.Context, machineType MachineType) ([]Machine, error) {
+	rows, err := q.db.Query(ctx, listMachinesByType, machineType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Machine
+	for rows.Next() {
+		var i Machine
+		if err := rows.Scan(
+			&i.ID,
+			&i.LaundryServiceID,
+			&i.Code,
+			&i.MachineType,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listNotificationsByUser = `-- name: ListNotificationsByUser :many
+SELECT id, recipient_user_id, booking_id, title, message, payload, is_read, read_at, sent_at, created_at
+FROM notifications
+WHERE recipient_user_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListNotificationsByUserParams struct {
+	RecipientUserID pgtype.UUID `json:"recipient_user_id"`
+	Limit           int32       `json:"limit"`
+	Offset          int32       `json:"offset"`
+}
+
+func (q *Queries) ListNotificationsByUser(ctx context.Context, arg ListNotificationsByUserParams) ([]Notification, error) {
+	rows, err := q.db.Query(ctx, listNotificationsByUser, arg.RecipientUserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Notification
+	for rows.Next() {
+		var i Notification
+		if err := rows.Scan(
+			&i.ID,
+			&i.RecipientUserID,
+			&i.BookingID,
+			&i.Title,
+			&i.Message,
+			&i.Payload,
+			&i.IsRead,
+			&i.ReadAt,
+			&i.SentAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markNotificationRead = `-- name: MarkNotificationRead :one
+UPDATE notifications
+SET is_read = TRUE,
+    read_at = NOW()
+WHERE id = $1
+  AND recipient_user_id = $2
+RETURNING id, recipient_user_id, booking_id, title, message, payload, is_read, read_at, sent_at, created_at
+`
+
+type MarkNotificationReadParams struct {
+	ID              pgtype.UUID `json:"id"`
+	RecipientUserID pgtype.UUID `json:"recipient_user_id"`
+}
+
+func (q *Queries) MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) (Notification, error) {
+	row := q.db.QueryRow(ctx, markNotificationRead, arg.ID, arg.RecipientUserID)
+	var i Notification
+	err := row.Scan(
+		&i.ID,
+		&i.RecipientUserID,
+		&i.BookingID,
+		&i.Title,
+		&i.Message,
+		&i.Payload,
+		&i.IsRead,
+		&i.ReadAt,
+		&i.SentAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const revokeStudentBagQRAliasRotate = `-- name: RevokeStudentBagQRAliasRotate :one
+UPDATE bags
+SET qr_version = qr_version + 1,
+    is_revoked = FALSE,
+    last_rotated_at = NOW(),
+    updated_at = NOW()
+WHERE student_id = $1
+RETURNING id, student_id, qr_version, is_revoked, last_rotated_at, created_at, updated_at
+`
+
+// Optional alias behavior.
+func (q *Queries) RevokeStudentBagQRAliasRotate(ctx context.Context, studentID pgtype.UUID) (Bag, error) {
+	row := q.db.QueryRow(ctx, revokeStudentBagQRAliasRotate, studentID)
+	var i Bag
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.QrVersion,
+		&i.IsRevoked,
+		&i.LastRotatedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const rotateStudentBagQR = `-- name: RotateStudentBagQR :one
+UPDATE bags
+SET qr_version = qr_version + 1,
+    is_revoked = FALSE,
+    last_rotated_at = NOW(),
+    updated_at = NOW()
+WHERE student_id = $1
+RETURNING id, student_id, qr_version, is_revoked, last_rotated_at, created_at, updated_at
+`
+
+func (q *Queries) RotateStudentBagQR(ctx context.Context, studentID pgtype.UUID) (Bag, error) {
+	row := q.db.QueryRow(ctx, rotateStudentBagQR, studentID)
+	var i Bag
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.QrVersion,
+		&i.IsRevoked,
+		&i.LastRotatedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setBookingCollected = `-- name: SetBookingCollected :one
+UPDATE bookings
+SET status = 'collected',
+    collected_at = NOW(),
+    last_actor_user_id = $2,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, student_id, bag_id, status, received_at, wash_started_at, wash_finished_at, dry_started_at, dry_finished_at, ready_at, collected_at, row_no, notes, last_actor_user_id, created_at, updated_at
+`
+
+type SetBookingCollectedParams struct {
+	ID              pgtype.UUID `json:"id"`
+	LastActorUserID pgtype.UUID `json:"last_actor_user_id"`
+}
+
+func (q *Queries) SetBookingCollected(ctx context.Context, arg SetBookingCollectedParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, setBookingCollected, arg.ID, arg.LastActorUserID)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.BagID,
+		&i.Status,
+		&i.ReceivedAt,
+		&i.WashStartedAt,
+		&i.WashFinishedAt,
+		&i.DryStartedAt,
+		&i.DryFinishedAt,
+		&i.ReadyAt,
+		&i.CollectedAt,
+		&i.RowNo,
+		&i.Notes,
+		&i.LastActorUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setBookingDroppedOff = `-- name: SetBookingDroppedOff :one
+UPDATE bookings
+SET status = 'dropped_off',
+    received_at = NOW(),
+    last_actor_user_id = $2,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, student_id, bag_id, status, received_at, wash_started_at, wash_finished_at, dry_started_at, dry_finished_at, ready_at, collected_at, row_no, notes, last_actor_user_id, created_at, updated_at
+`
+
+type SetBookingDroppedOffParams struct {
+	ID              pgtype.UUID `json:"id"`
+	LastActorUserID pgtype.UUID `json:"last_actor_user_id"`
+}
+
+func (q *Queries) SetBookingDroppedOff(ctx context.Context, arg SetBookingDroppedOffParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, setBookingDroppedOff, arg.ID, arg.LastActorUserID)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.BagID,
+		&i.Status,
+		&i.ReceivedAt,
+		&i.WashStartedAt,
+		&i.WashFinishedAt,
+		&i.DryStartedAt,
+		&i.DryFinishedAt,
+		&i.ReadyAt,
+		&i.CollectedAt,
+		&i.RowNo,
+		&i.Notes,
+		&i.LastActorUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setBookingDryDone = `-- name: SetBookingDryDone :one
+UPDATE bookings
+SET status = 'dry_done',
+    dry_finished_at = NOW(),
+    last_actor_user_id = $2,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, student_id, bag_id, status, received_at, wash_started_at, wash_finished_at, dry_started_at, dry_finished_at, ready_at, collected_at, row_no, notes, last_actor_user_id, created_at, updated_at
+`
+
+type SetBookingDryDoneParams struct {
+	ID              pgtype.UUID `json:"id"`
+	LastActorUserID pgtype.UUID `json:"last_actor_user_id"`
+}
+
+func (q *Queries) SetBookingDryDone(ctx context.Context, arg SetBookingDryDoneParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, setBookingDryDone, arg.ID, arg.LastActorUserID)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.BagID,
+		&i.Status,
+		&i.ReceivedAt,
+		&i.WashStartedAt,
+		&i.WashFinishedAt,
+		&i.DryStartedAt,
+		&i.DryFinishedAt,
+		&i.ReadyAt,
+		&i.CollectedAt,
+		&i.RowNo,
+		&i.Notes,
+		&i.LastActorUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setBookingDrying = `-- name: SetBookingDrying :one
+UPDATE bookings
+SET status = 'drying',
+    dry_started_at = NOW(),
+    last_actor_user_id = $2,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, student_id, bag_id, status, received_at, wash_started_at, wash_finished_at, dry_started_at, dry_finished_at, ready_at, collected_at, row_no, notes, last_actor_user_id, created_at, updated_at
+`
+
+type SetBookingDryingParams struct {
+	ID              pgtype.UUID `json:"id"`
+	LastActorUserID pgtype.UUID `json:"last_actor_user_id"`
+}
+
+func (q *Queries) SetBookingDrying(ctx context.Context, arg SetBookingDryingParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, setBookingDrying, arg.ID, arg.LastActorUserID)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.BagID,
+		&i.Status,
+		&i.ReceivedAt,
+		&i.WashStartedAt,
+		&i.WashFinishedAt,
+		&i.DryStartedAt,
+		&i.DryFinishedAt,
+		&i.ReadyAt,
+		&i.CollectedAt,
+		&i.RowNo,
+		&i.Notes,
+		&i.LastActorUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setBookingReady = `-- name: SetBookingReady :one
+UPDATE bookings
+SET status = 'ready_for_pickup',
+    row_no = $2,
+    ready_at = NOW(),
+    last_actor_user_id = $3,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, student_id, bag_id, status, received_at, wash_started_at, wash_finished_at, dry_started_at, dry_finished_at, ready_at, collected_at, row_no, notes, last_actor_user_id, created_at, updated_at
+`
+
+type SetBookingReadyParams struct {
+	ID              pgtype.UUID `json:"id"`
+	RowNo           pgtype.Text `json:"row_no"`
+	LastActorUserID pgtype.UUID `json:"last_actor_user_id"`
+}
+
+func (q *Queries) SetBookingReady(ctx context.Context, arg SetBookingReadyParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, setBookingReady, arg.ID, arg.RowNo, arg.LastActorUserID)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.BagID,
+		&i.Status,
+		&i.ReceivedAt,
+		&i.WashStartedAt,
+		&i.WashFinishedAt,
+		&i.DryStartedAt,
+		&i.DryFinishedAt,
+		&i.ReadyAt,
+		&i.CollectedAt,
+		&i.RowNo,
+		&i.Notes,
+		&i.LastActorUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setBookingWashDone = `-- name: SetBookingWashDone :one
+UPDATE bookings
+SET status = 'wash_done',
+    wash_finished_at = NOW(),
+    last_actor_user_id = $2,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, student_id, bag_id, status, received_at, wash_started_at, wash_finished_at, dry_started_at, dry_finished_at, ready_at, collected_at, row_no, notes, last_actor_user_id, created_at, updated_at
+`
+
+type SetBookingWashDoneParams struct {
+	ID              pgtype.UUID `json:"id"`
+	LastActorUserID pgtype.UUID `json:"last_actor_user_id"`
+}
+
+func (q *Queries) SetBookingWashDone(ctx context.Context, arg SetBookingWashDoneParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, setBookingWashDone, arg.ID, arg.LastActorUserID)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.BagID,
+		&i.Status,
+		&i.ReceivedAt,
+		&i.WashStartedAt,
+		&i.WashFinishedAt,
+		&i.DryStartedAt,
+		&i.DryFinishedAt,
+		&i.ReadyAt,
+		&i.CollectedAt,
+		&i.RowNo,
+		&i.Notes,
+		&i.LastActorUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setBookingWashing = `-- name: SetBookingWashing :one
+UPDATE bookings
+SET status = 'washing',
+    wash_started_at = NOW(),
+    last_actor_user_id = $2,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, student_id, bag_id, status, received_at, wash_started_at, wash_finished_at, dry_started_at, dry_finished_at, ready_at, collected_at, row_no, notes, last_actor_user_id, created_at, updated_at
+`
+
+type SetBookingWashingParams struct {
+	ID              pgtype.UUID `json:"id"`
+	LastActorUserID pgtype.UUID `json:"last_actor_user_id"`
+}
+
+func (q *Queries) SetBookingWashing(ctx context.Context, arg SetBookingWashingParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, setBookingWashing, arg.ID, arg.LastActorUserID)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.BagID,
+		&i.Status,
+		&i.ReceivedAt,
+		&i.WashStartedAt,
+		&i.WashFinishedAt,
+		&i.DryStartedAt,
+		&i.DryFinishedAt,
+		&i.ReadyAt,
+		&i.CollectedAt,
+		&i.RowNo,
+		&i.Notes,
+		&i.LastActorUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateBookingStatus = `-- name: UpdateBookingStatus :one
+UPDATE bookings
+SET status = $2,
+    last_actor_user_id = $3,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, student_id, bag_id, status, received_at, wash_started_at, wash_finished_at, dry_started_at, dry_finished_at, ready_at, collected_at, row_no, notes, last_actor_user_id, created_at, updated_at
+`
+
+type UpdateBookingStatusParams struct {
+	ID              pgtype.UUID   `json:"id"`
+	Status          BookingStatus `json:"status"`
+	LastActorUserID pgtype.UUID   `json:"last_actor_user_id"`
+}
+
+func (q *Queries) UpdateBookingStatus(ctx context.Context, arg UpdateBookingStatusParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, updateBookingStatus, arg.ID, arg.Status, arg.LastActorUserID)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.BagID,
+		&i.Status,
+		&i.ReceivedAt,
+		&i.WashStartedAt,
+		&i.WashFinishedAt,
+		&i.DryStartedAt,
+		&i.DryFinishedAt,
+		&i.ReadyAt,
+		&i.CollectedAt,
+		&i.RowNo,
+		&i.Notes,
+		&i.LastActorUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertPushToken = `-- name: UpsertPushToken :one
+
+INSERT INTO push_tokens (user_id, token, platform, device_name, is_active, last_seen_at)
+VALUES ($1, $2, $3, $4, TRUE, NOW())
+ON CONFLICT (token)
+DO UPDATE SET user_id = EXCLUDED.user_id,
+              platform = EXCLUDED.platform,
+              device_name = EXCLUDED.device_name,
+              is_active = TRUE,
+              last_seen_at = NOW(),
+              updated_at = NOW()
+RETURNING id, user_id, token, platform, device_name, is_active, last_seen_at, invalidated_at, created_at, updated_at
+`
+
+type UpsertPushTokenParams struct {
+	UserID     pgtype.UUID `json:"user_id"`
+	Token      string      `json:"token"`
+	Platform   string      `json:"platform"`
+	DeviceName pgtype.Text `json:"device_name"`
+}
+
+// =========================
+// Notification Queries
+// =========================
+func (q *Queries) UpsertPushToken(ctx context.Context, arg UpsertPushTokenParams) (PushToken, error) {
+	row := q.db.QueryRow(ctx, upsertPushToken,
+		arg.UserID,
+		arg.Token,
+		arg.Platform,
+		arg.DeviceName,
+	)
+	var i PushToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.Platform,
+		&i.DeviceName,
+		&i.IsActive,
+		&i.LastSeenAt,
+		&i.InvalidatedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

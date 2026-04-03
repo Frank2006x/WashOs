@@ -48,7 +48,7 @@ func main() {
 	var existingUsers int
 	pool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE email LIKE '%@washos.com'").Scan(&existingUsers)
 	
-	if existingUsers >= 30 {
+	if existingUsers >= 8 {
 		fmt.Printf("✅ Database already has %d WashOs users - skipping seed\n", existingUsers)
 	} else {
 		// Read and execute seed.sql
@@ -68,22 +68,16 @@ func main() {
 	// Verify the data
 	fmt.Println("\n📊 Verification:")
 	
-	var studentCount, wardenCount, staffCount, totalUsers int
+	var studentCount, staffCount, totalUsers int
 	
 	pool.QueryRow(ctx, "SELECT COUNT(*) FROM students").Scan(&studentCount)
-	pool.QueryRow(ctx, "SELECT COUNT(*) FROM wardens").Scan(&wardenCount)
 	pool.QueryRow(ctx, "SELECT COUNT(*) FROM laundry_staff").Scan(&staffCount)
 	pool.QueryRow(ctx, "SELECT COUNT(*) FROM users").Scan(&totalUsers)
 	
 	fmt.Printf("   Students created: %d\n", studentCount)
-	fmt.Printf("   Wardens created: %d\n", wardenCount)
 	fmt.Printf("   Laundry staff created: %d\n", staffCount)
 	fmt.Printf("   Total users created: %d\n", totalUsers)
 	
 	fmt.Println("\n🎉 Database setup complete!")
-	fmt.Println("\n📝 Login credentials:")
-	fmt.Println("   Students: student1@washos.com to student10@washos.com")
-	fmt.Println("   Wardens: warden1@washos.com to warden10@washos.com")
-	fmt.Println("   Laundry Staff: laundry1@washos.com to laundry10@washos.com")
-	fmt.Println("   Password for all: password123")
+	fmt.Println("\n📝 V1 scope: student + laundry_staff roles")
 }

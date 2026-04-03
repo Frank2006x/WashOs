@@ -7,17 +7,27 @@ import (
 	"Frank2006x/washos/internal/router"
 	"context"
 	"log"
+	"os"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/joho/godotenv"
-	"log"
-	"os"
 )
 
 func main() {
-	godotenv.Load()
+	envPaths := []string{
+		".env",       // when running from server/
+		"../.env",    // when running from server/cmd/
+		"../../.env", // when running from server/cmd/api/
+	}
+	for _, p := range envPaths {
+		if _, err := os.Stat(p); err == nil {
+			if err := godotenv.Load(p); err == nil {
+				break
+			}
+		}
+	}
 	app := fiber.New()
 	app.Use(cors.New())
 	app.Use(logger.New())

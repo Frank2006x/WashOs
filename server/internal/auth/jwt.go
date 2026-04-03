@@ -3,9 +3,11 @@ package auth
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 const (
@@ -16,6 +18,8 @@ const (
 func jwtSecret() []byte {
 	return []byte(os.Getenv("JWT_SECRET"))
 }
+
+var revokedTokenJTI sync.Map
 
 type TokenType int
 
@@ -36,11 +40,13 @@ func (t TokenType) String() string {
 }
 
 func generateSignedToken(userID string, tokenType TokenType, ttl time.Duration) (string, error) {
+	now := time.Now()
 	claims := jwt.MapClaims{
 		"user_id":    userID,
 		"token_type": tokenType.String(),
-		"exp":        time.Now().Add(ttl).Unix(),
-		"iat":        time.Now().Unix(),
+		"jti":        uuid.NewString(),
+		"exp":        now.Add(ttl).Unix(),
+		"iat":        now.Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -78,6 +84,14 @@ func parseAndValidateToken(tokenStr string, expectedType TokenType) (string, err
 		return "", fmt.Errorf("invalid token claims")
 	}
 
+	jti, ok := claims["jti"].(string)
+	if !ok || jti == "" {
+		return "", fmt.Errorf("invalid token jti")
+	}
+	if isTokenRevoked(jti) {
+		return "", fmt.Errorf("token revoked")
+	}
+
 	tokenType, ok := claims["token_type"].(string)
 	if !ok || tokenType != expectedType.String() {
 		return "", fmt.Errorf("invalid token type")
@@ -89,6 +103,33 @@ func parseAndValidateToken(tokenStr string, expectedType TokenType) (string, err
 	}
 
 	return userID, nil
+}
+
+func isTokenRevoked(jti string) bool {
+	_, exists := revokedTokenJTI.Load(jti)
+	return exists
+}
+
+func RevokeToken(tokenStr string) error {
+	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+		return jwtSecret(), nil
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
+	if err != nil || !token.Valid {
+		return fmt.Errorf("invalid token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return fmt.Errorf("invalid token claims")
+	}
+
+	jti, ok := claims["jti"].(string)
+	if !ok || jti == "" {
+		return fmt.Errorf("missing jti")
+	}
+
+	revokedTokenJTI.Store(jti, struct{}{})
+	return nil
 }
 
 func ParseAndValidateAccessToken(tokenStr string) (string, error) {

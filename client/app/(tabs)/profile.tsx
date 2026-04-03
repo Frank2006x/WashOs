@@ -1,15 +1,19 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useRouter } from "expo-router";
-import { Pressable, Text, View, ScrollView, ActivityIndicator } from "react-native";
-import { useAuth } from "../../contexts/AuthContext";
+import {
+  Pressable,
+  Text,
+  View,
+  ScrollView,
+  ActivityIndicator,
+} from "react-native";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function ProfileTab() {
-  const router = useRouter();
   const { user, profile, logout, loading } = useAuth();
 
   const handleLogout = async () => {
     await logout();
-    router.replace("/");
+    // Root layout redirect handles moving unauthenticated users to login.
   };
 
   if (loading) {
@@ -22,23 +26,31 @@ export default function ProfileTab() {
 
   const getRoleLabel = (role: string) => {
     switch (role) {
-      case 'student': return 'Student';
-      case 'warden': return 'Warden';
-      case 'staff': return 'Laundry Staff';
-      case 'admin': return 'Administrator';
-      default: return role;
+      case "student":
+        return "Student";
+      case "laundry_staff":
+        return "Laundry Staff";
+      default:
+        return role;
     }
   };
 
   const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'student': return 'school';
-      case 'warden': return 'admin-panel-settings';
-      case 'staff': return 'local-laundry-service';
-      case 'admin': return 'admin-panel-settings';
-      default: return 'person';
+      case "student":
+        return "school";
+      case "laundry_staff":
+        return "local-laundry-service";
+      default:
+        return "person";
     }
   };
+
+  const profileName = profile?.name || "User";
+  const profilePhone =
+    user?.role === "laundry_staff" ? (profile as any)?.phone : null;
+  const profileRegNo =
+    user?.role === "student" ? (profile as any)?.reg_no : null;
 
   return (
     <ScrollView className="flex-1 bg-background dark:bg-background-dark">
@@ -55,17 +67,17 @@ export default function ProfileTab() {
           <View className="mb-6 flex-row items-center">
             <View className="mr-4 h-16 w-16 items-center justify-center rounded-full bg-primary-dark/10 dark:bg-primary/10">
               <MaterialIcons
-                name={getRoleIcon(user?.role || 'person') as any}
+                name={getRoleIcon(user?.role || "person") as any}
                 size={32}
                 color="#293975"
               />
             </View>
             <View className="flex-1">
               <Text className="text-xl font-bold text-card-foreground dark:text-card-foreground-dark">
-                {(profile as any)?.name || 'User'}
+                {profileName}
               </Text>
               <Text className="mt-1 text-sm text-muted-foreground dark:text-muted-foreground-dark">
-                {getRoleLabel(user?.role || '')}
+                {getRoleLabel(user?.role || "")}
               </Text>
             </View>
           </View>
@@ -80,13 +92,24 @@ export default function ProfileTab() {
               </Text>
             </View>
 
-            {(profile as any)?.phone && (
+            {profilePhone && (
               <View className="mt-4">
                 <Text className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground-dark">
                   Phone
                 </Text>
                 <Text className="text-base font-medium text-card-foreground dark:text-card-foreground-dark">
-                  {(profile as any).phone}
+                  {profilePhone}
+                </Text>
+              </View>
+            )}
+
+            {profileRegNo && (
+              <View className="mt-4">
+                <Text className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground-dark">
+                  Reg No
+                </Text>
+                <Text className="text-base font-medium text-card-foreground dark:text-card-foreground-dark">
+                  {profileRegNo}
                 </Text>
               </View>
             )}
@@ -105,7 +128,9 @@ export default function ProfileTab() {
                 Member Since
               </Text>
               <Text className="text-base font-medium text-card-foreground dark:text-card-foreground-dark">
-                {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
+                {user?.created_at
+                  ? new Date(user.created_at).toLocaleDateString()
+                  : "N/A"}
               </Text>
             </View>
           </View>

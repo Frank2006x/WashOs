@@ -1,13 +1,9 @@
 package handler
 
 import (
-	"Frank2006x/washos/internal/auth"
-<<<<<<< HEAD
-	"fmt"
-=======
 	"strings"
->>>>>>> d717255de7cbf333cba991d9de581fba59498d1e
 
+	"Frank2006x/washos/internal/auth"
 	dbgen "Frank2006x/washos/internal/repository"
 
 	"github.com/gofiber/fiber/v3"
@@ -21,64 +17,20 @@ func NewHandler(q *dbgen.Queries) *Handler {
 	return &Handler{Queries: q}
 }
 
-type LoginResponse struct {
-	Token   string      `json:"token"`
-	User    dbgen.User  `json:"user"`
-	Profile interface{} `json:"profile,omitempty"`
+type AuthResponse struct {
+	Token        string      `json:"token"`
+	AccessToken  string      `json:"access_token"`
+	RefreshToken string      `json:"refresh_token"`
+	User         dbgen.User  `json:"user"`
+	Profile      interface{} `json:"profile,omitempty"`
 }
 
-func (h *Handler) Login(c fiber.Ctx) error {
-	type request struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
+func sanitizeUser(user dbgen.User) dbgen.User {
+	user.Password = ""
+	return user
+}
 
-	var body request
-
-	if err := c.Bind().Body(&body); err != nil {
-		fmt.Printf("Login Debug: Failed to bind body: %v\n", err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
-	}
-
-	fmt.Printf("Login Debug: Received login request for email: '%s'\n", body.Email)
-
-	// Get user by email
-	user, err := h.Queries.GetUserByEmail(c.Context(), body.Email)
-	if err != nil {
-		fmt.Printf("Login Debug: User not found in DB for email '%s'. Error: %v\n", body.Email, err)
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Invalid credentials",
-		})
-	}
-
-	fmt.Printf("Login Debug: User found. Comparing passwords. DB:'%s' vs Input:'%s'\n", user.Password, body.Password)
-
-	// Check password (plain text for now - in production use bcrypt)
-	if user.Password != body.Password {
-		fmt.Printf("Login Debug: Password mismatch for user '%s'\n", body.Email)
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Invalid credentials",
-		})
-	}
-
-<<<<<<< HEAD
-	fmt.Printf("Login Debug: Login successful for user '%s'\n", body.Email)
-
-	// Generate JWT token
-	token, err := auth.GenerateToken(user.ID.String())
-=======
-	accessToken, refreshToken, err := auth.GenerateTokenPair(user.ID.String())
->>>>>>> d717255de7cbf333cba991d9de581fba59498d1e
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to generate token",
-		})
-	}
-
-<<<<<<< HEAD
-	// Get user profile based on role
+func (h *Handler) buildAuthResponse(c fiber.Ctx, user dbgen.User, accessToken, refreshToken string) (AuthResponse, error) {
 	var profile interface{}
 	switch user.Role {
 	case dbgen.UserRoleStudent:
@@ -86,31 +38,214 @@ func (h *Handler) Login(c fiber.Ctx) error {
 		if err == nil {
 			profile = student
 		}
-	case dbgen.UserRoleWarden:
-		warden, err := h.Queries.GetWardenByUserID(c.Context(), user.ID)
-		if err == nil {
-			profile = warden
-		}
-	case dbgen.UserRoleStaff:
+	case dbgen.UserRoleLaundryStaff:
 		staff, err := h.Queries.GetLaundryStaffByUserID(c.Context(), user.ID)
 		if err == nil {
 			profile = staff
 		}
 	}
 
-	// Remove password from response
-	user.Password = ""
+	return AuthResponse{
+		Token:        accessToken,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		User:         sanitizeUser(user),
+		Profile:      profile,
+	}, nil
+}
 
-	return c.Status(fiber.StatusOK).JSON(LoginResponse{
-		Token:   token,
-		User:    user,
-		Profile: profile,
-=======
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"token":         accessToken,
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
+func (h *Handler) StudentSignIn(c fiber.Ctx) error {
+	type request struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	var body request
+	if err := c.Bind().Body(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	body.Email = strings.TrimSpace(strings.ToLower(body.Email))
+	if body.Email == "" || body.Password == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "email and password are required"})
+	}
+
+	user, err := h.Queries.GetUserByEmail(c.Context(), body.Email)
+	if err != nil || user.Role != dbgen.UserRoleStudent {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
+	}
+
+	if !auth.VerifyPassword(user.Password, body.Password) {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
+	}
+
+	accessToken, refreshToken, err := auth.GenerateTokenPair(user.ID.String())
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate token"})
+	}
+
+	response, err := h.buildAuthResponse(c, user, accessToken, refreshToken)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to build response"})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response)
+}
+
+func (h *Handler) StudentSignUp(c fiber.Ctx) error {
+	type request struct {
+		Name     string `json:"name"`
+		RegNo    string `json:"reg_no"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	var body request
+	if err := c.Bind().Body(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	body.Name = strings.TrimSpace(body.Name)
+	body.RegNo = strings.TrimSpace(strings.ToUpper(body.RegNo))
+	body.Email = strings.TrimSpace(strings.ToLower(body.Email))
+
+	if body.Name == "" || body.RegNo == "" || body.Email == "" || body.Password == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name, reg_no, email, and password are required"})
+	}
+
+	hashedPassword, err := auth.HashPassword(body.Password)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to secure password"})
+	}
+
+	user, err := h.Queries.CreateUser(c.Context(), dbgen.CreateUserParams{
+		Email:    body.Email,
+		Password: hashedPassword,
+		Role:     dbgen.UserRoleStudent,
 	})
+	if err != nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "Unable to create student user"})
+	}
+
+	_, err = h.Queries.CreateStudent(c.Context(), dbgen.CreateStudentParams{
+		UserID: user.ID,
+		RegNo:  body.RegNo,
+		Name:   body.Name,
+	})
+	if err != nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "Unable to create student profile"})
+	}
+
+	user.Password = ""
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "Student account created",
+		"user":    user,
+	})
+}
+
+func (h *Handler) StaffSignIn(c fiber.Ctx) error {
+	type request struct {
+		Phone    string `json:"phone"`
+		Password string `json:"password"`
+	}
+
+	var body request
+	if err := c.Bind().Body(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	body.Phone = strings.TrimSpace(body.Phone)
+	if body.Phone == "" || body.Password == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "phone and password are required"})
+	}
+
+	user, err := h.Queries.GetLaundryStaffUserByPhone(c.Context(), body.Phone)
+	if err != nil || user.Role != dbgen.UserRoleLaundryStaff {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
+	}
+
+	if !auth.VerifyPassword(user.Password, body.Password) {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
+	}
+
+	accessToken, refreshToken, err := auth.GenerateTokenPair(user.ID.String())
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate token"})
+	}
+
+	response, err := h.buildAuthResponse(c, user, accessToken, refreshToken)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to build response"})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response)
+}
+
+func (h *Handler) StaffSignUp(c fiber.Ctx) error {
+	type request struct {
+		Name     string `json:"name"`
+		Phone    string `json:"phone"`
+		Password string `json:"password"`
+		Email    string `json:"email,omitempty"`
+	}
+
+	var body request
+	if err := c.Bind().Body(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	body.Name = strings.TrimSpace(body.Name)
+	body.Phone = strings.TrimSpace(body.Phone)
+	body.Email = strings.TrimSpace(strings.ToLower(body.Email))
+
+	if body.Name == "" || body.Phone == "" || body.Password == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "name, phone, and password are required"})
+	}
+
+	service, err := h.Queries.GetFirstLaundryService(c.Context())
+	if err != nil {
+		return c.Status(fiber.StatusPreconditionFailed).JSON(fiber.Map{"error": "No laundry service configured"})
+	}
+
+	email := body.Email
+	if email == "" {
+		email = strings.ReplaceAll(body.Phone, "+", "") + "@staff.washos.local"
+	}
+
+	hashedPassword, err := auth.HashPassword(body.Password)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to secure password"})
+	}
+
+	user, err := h.Queries.CreateUser(c.Context(), dbgen.CreateUserParams{
+		Email:    email,
+		Password: hashedPassword,
+		Role:     dbgen.UserRoleLaundryStaff,
+	})
+	if err != nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "Unable to create staff user"})
+	}
+
+	_, err = h.Queries.CreateLaundryStaff(c.Context(), dbgen.CreateLaundryStaffParams{
+		UserID:           user.ID,
+		Name:             body.Name,
+		Phone:            body.Phone,
+		LaundryServiceID: service.ID,
+	})
+	if err != nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "Unable to create staff profile"})
+	}
+
+	user.Password = ""
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "Laundry staff account created",
+		"user":    user,
+	})
+}
+
+// Login is kept as a backward-compatible alias to student signin.
+func (h *Handler) Login(c fiber.Ctx) error {
+	return h.StudentSignIn(c)
 }
 
 func (h *Handler) Refresh(c fiber.Ctx) error {
@@ -120,35 +255,50 @@ func (h *Handler) Refresh(c fiber.Ctx) error {
 
 	var body request
 	if err := c.Bind().Body(&body); err != nil {
-		return err
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
 	body.RefreshToken = strings.TrimSpace(body.RefreshToken)
 	if body.RefreshToken == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "refresh_token is required")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "refresh_token is required"})
 	}
 
 	userID, err := auth.ParseAndValidateRefreshToken(body.RefreshToken)
 	if err != nil {
-		return fiber.ErrUnauthorized
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid refresh token"})
 	}
 
 	accessToken, refreshToken, err := auth.GenerateTokenPair(userID)
 	if err != nil {
-		return err
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate token"})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"token":         accessToken,
 		"access_token":  accessToken,
 		"refresh_token": refreshToken,
->>>>>>> d717255de7cbf333cba991d9de581fba59498d1e
 	})
 }
 
 func (h *Handler) Logout(c fiber.Ctx) error {
-	// In a stateless JWT authentication system, logout is typically handled on the client side by simply deleting the token.
-	return c.JSON(fiber.Map{
-		"message": "Logged out successfully",
-	})
+	type request struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+
+	var body request
+	_ = c.Bind().Body(&body)
+
+	authHeader := strings.TrimSpace(c.Get("Authorization"))
+	if authHeader != "" {
+		parts := strings.Fields(authHeader)
+		if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+			_ = auth.RevokeToken(parts[1])
+		}
+	}
+
+	if strings.TrimSpace(body.RefreshToken) != "" {
+		_ = auth.RevokeToken(strings.TrimSpace(body.RefreshToken))
+	}
+
+	return c.JSON(fiber.Map{"message": "Logged out successfully"})
 }

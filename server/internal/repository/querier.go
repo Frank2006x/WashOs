@@ -6,10 +6,69 @@ package dbgen
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
+	// =========================
+	// Booking Queries
+	// =========================
+	CreateBooking(ctx context.Context, arg CreateBookingParams) (Booking, error)
+	CreateLaundryStaff(ctx context.Context, arg CreateLaundryStaffParams) (LaundryStaff, error)
+	CreateMachineRun(ctx context.Context, arg CreateMachineRunParams) (MachineRun, error)
+	CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error)
+	CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	// =========================
+	// Workflow Event Queries
+	// =========================
+	CreateWorkflowEvent(ctx context.Context, arg CreateWorkflowEventParams) (WorkflowEvent, error)
+	DeactivatePushToken(ctx context.Context, token string) error
+	FinishMachineRun(ctx context.Context, arg FinishMachineRunParams) (MachineRun, error)
+	GetBagByID(ctx context.Context, id pgtype.UUID) (Bag, error)
+	GetBookingByID(ctx context.Context, id pgtype.UUID) (Booking, error)
+	GetBookingWorkflowEvents(ctx context.Context, bookingID pgtype.UUID) ([]WorkflowEvent, error)
+	GetFirstLaundryService(ctx context.Context) (LaundryService, error)
+	GetLatestActiveBookingByBagID(ctx context.Context, bagID pgtype.UUID) (Booking, error)
+	GetLaundryStaffByUserID(ctx context.Context, userID pgtype.UUID) (LaundryStaff, error)
+	// Staff signs in by phone.
+	GetLaundryStaffUserByPhone(ctx context.Context, phone string) (User, error)
+	GetMachineByID(ctx context.Context, id pgtype.UUID) (Machine, error)
+	GetRunningMachineRunByMachineID(ctx context.Context, machineID pgtype.UUID) (MachineRun, error)
+	GetStudentBagByStudentID(ctx context.Context, studentID pgtype.UUID) (Bag, error)
+	GetStudentBookings(ctx context.Context, arg GetStudentBookingsParams) ([]Booking, error)
+	GetStudentByUserID(ctx context.Context, userID pgtype.UUID) (Student, error)
+	// =========================
+	// Auth and Profile Queries
+	// =========================
 	GetUserByEmail(ctx context.Context, email string) (User, error)
+	// =========================
+	// Bag Queries
+	// =========================
+	// One bag per student; idempotent init.
+	InitStudentBag(ctx context.Context, studentID pgtype.UUID) (Bag, error)
+	// =========================
+	// Machine and Run Queries
+	// =========================
+	ListMachinesByType(ctx context.Context, machineType MachineType) ([]Machine, error)
+	ListNotificationsByUser(ctx context.Context, arg ListNotificationsByUserParams) ([]Notification, error)
+	MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) (Notification, error)
+	// Optional alias behavior.
+	RevokeStudentBagQRAliasRotate(ctx context.Context, studentID pgtype.UUID) (Bag, error)
+	RotateStudentBagQR(ctx context.Context, studentID pgtype.UUID) (Bag, error)
+	SetBookingCollected(ctx context.Context, arg SetBookingCollectedParams) (Booking, error)
+	SetBookingDroppedOff(ctx context.Context, arg SetBookingDroppedOffParams) (Booking, error)
+	SetBookingDryDone(ctx context.Context, arg SetBookingDryDoneParams) (Booking, error)
+	SetBookingDrying(ctx context.Context, arg SetBookingDryingParams) (Booking, error)
+	SetBookingReady(ctx context.Context, arg SetBookingReadyParams) (Booking, error)
+	SetBookingWashDone(ctx context.Context, arg SetBookingWashDoneParams) (Booking, error)
+	SetBookingWashing(ctx context.Context, arg SetBookingWashingParams) (Booking, error)
+	UpdateBookingStatus(ctx context.Context, arg UpdateBookingStatusParams) (Booking, error)
+	// =========================
+	// Notification Queries
+	// =========================
+	UpsertPushToken(ctx context.Context, arg UpsertPushTokenParams) (PushToken, error)
 }
 
 var _ Querier = (*Queries)(nil)

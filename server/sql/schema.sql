@@ -1,172 +1,271 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-DO $$ BEGIN
-  CREATE TYPE user_role AS ENUM (
-    'student',
-    'staff',
-    'warden',
-    'admin'
-  );
-EXCEPTION
-  WHEN duplicate_object THEN null;
-END $$;
+-- Destructive reset for V1-only schema.
+DROP TABLE IF EXISTS notifications CASCADE;
+DROP TABLE IF EXISTS push_tokens CASCADE;
+DROP TABLE IF EXISTS workflow_events CASCADE;
+DROP TABLE IF EXISTS machine_runs CASCADE;
+DROP TABLE IF EXISTS machines CASCADE;
+DROP TABLE IF EXISTS bookings CASCADE;
+DROP TABLE IF EXISTS bags CASCADE;
+DROP TABLE IF EXISTS laundry_staff CASCADE;
+DROP TABLE IF EXISTS students CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS laundry_services CASCADE;
 
-DO $$ BEGIN
-  CREATE TYPE booking_status AS ENUM (
-    'created',
-    'received',
-    'washing',
-    'ready',
-    'collected'
-  );
-EXCEPTION
-  WHEN duplicate_object THEN null;
-END $$;
+DROP TYPE IF EXISTS workflow_event_type CASCADE;
+DROP TYPE IF EXISTS machine_run_status CASCADE;
+DROP TYPE IF EXISTS machine_type CASCADE;
+DROP TYPE IF EXISTS booking_status CASCADE;
+DROP TYPE IF EXISTS user_role CASCADE;
 
-CREATE TABLE IF NOT EXISTS users (
+CREATE TYPE user_role AS ENUM (
+  'student',
+  'laundry_staff'
+);
+
+CREATE TYPE booking_status AS ENUM (
+  'created',
+  'dropped_off',
+  'washing',
+  'wash_done',
+  'drying',
+  'dry_done',
+  'ready_for_pickup',
+  'collected'
+);
+
+CREATE TYPE machine_type AS ENUM (
+  'washer',
+  'dryer'
+);
+
+CREATE TYPE machine_run_status AS ENUM (
+  'running',
+  'finished',
+  'cancelled'
+);
+
+CREATE TYPE workflow_event_type AS ENUM (
+  'bag_initialized',
+  'qr_rotated',
+  'received',
+  'wash_started',
+  'wash_finished',
+  'dry_started',
+  'dry_finished',
+  'marked_ready',
+  'collected',
+  'action_rejected'
+);
+
+CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email TEXT UNIQUE NOT NULL,
+  -- Password must store bcrypt hash (legacy code can keep this column name).
   password TEXT NOT NULL,
   role user_role NOT NULL,
-
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS blocks (
+CREATE TABLE students (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL UNIQUE,
-
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS floors (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  block_id UUID NOT NULL REFERENCES blocks(id) ON DELETE CASCADE,
-
-  floor_number INT NOT NULL,
-
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-  UNIQUE (block_id, floor_number)
-);
-
-CREATE TABLE IF NOT EXISTS rooms (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  floor_id UUID NOT NULL REFERENCES floors(id) ON DELETE CASCADE,
-
-  room_number INT NOT NULL,
-
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-  UNIQUE (floor_id, room_number)
-);
-
-CREATE TABLE IF NOT EXISTS students (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-
   user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-
+  reg_no TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
-  phone TEXT,
-
-  room_id UUID NOT NULL REFERENCES rooms(id),
-
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS laundry_services (
+CREATE TABLE laundry_services (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-
-  name TEXT NOT NULL,
+  name TEXT UNIQUE NOT NULL,
   phone TEXT,
-
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS laundry_staff (
+CREATE TABLE laundry_staff (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-
   user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-
   name TEXT NOT NULL,
-  phone TEXT,
-
+  phone TEXT UNIQUE NOT NULL,
   laundry_service_id UUID NOT NULL REFERENCES laundry_services(id),
-
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS wardens (
+CREATE TABLE bags (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-
-  user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-
-  name TEXT NOT NULL,
-  phone TEXT,
-
-  block_id UUID UNIQUE NOT NULL REFERENCES blocks(id),
-
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  student_id UUID UNIQUE NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  qr_version INT NOT NULL DEFAULT 1 CHECK (qr_version > 0),
+  is_revoked BOOLEAN NOT NULL DEFAULT FALSE,
+  last_rotated_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (id, student_id)
 );
 
-CREATE TABLE IF NOT EXISTS bags (
+CREATE TABLE bookings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-
-  student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-
-  qr_code TEXT UNIQUE NOT NULL,
-
-  is_active BOOLEAN DEFAULT TRUE,
-
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS bookings (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-
   student_id UUID NOT NULL REFERENCES students(id),
   bag_id UUID NOT NULL REFERENCES bags(id),
-
   status booking_status NOT NULL DEFAULT 'created',
 
-  drop_time TIMESTAMP,
-  wash_complete_time TIMESTAMP,
-  pickup_time TIMESTAMP,
+  received_at TIMESTAMPTZ,
+  wash_started_at TIMESTAMPTZ,
+  wash_finished_at TIMESTAMPTZ,
+  dry_started_at TIMESTAMPTZ,
+  dry_finished_at TIMESTAMPTZ,
+  ready_at TIMESTAMPTZ,
+  collected_at TIMESTAMPTZ,
 
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  row_no TEXT,
+  notes TEXT,
+  last_actor_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT bookings_student_bag_fk
+    FOREIGN KEY (bag_id, student_id)
+    REFERENCES bags(id, student_id)
 );
 
-CREATE TABLE IF NOT EXISTS schedule_templates (
+CREATE TABLE machines (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-
-  block_id UUID NOT NULL REFERENCES blocks(id),
-
-  room_start INT,
-  room_end INT,
-
-  day_of_week INT CHECK (day_of_week BETWEEN 0 AND 6),
-
-  drop_start_time TIME,
-  drop_end_time TIME,
-
-  pickup_start_time TIME,
-  pickup_end_time TIME,
-
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  laundry_service_id UUID NOT NULL REFERENCES laundry_services(id) ON DELETE CASCADE,
+  code TEXT UNIQUE NOT NULL,
+  machine_type machine_type NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS schedule_instances (
+CREATE TABLE machine_runs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-
-  template_id UUID REFERENCES schedule_templates(id) ON DELETE SET NULL,
-
-  month INT CHECK (month BETWEEN 1 AND 12),
-  year INT,
-
-  is_active BOOLEAN DEFAULT TRUE,
-
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+  bag_id UUID NOT NULL REFERENCES bags(id),
+  machine_id UUID NOT NULL REFERENCES machines(id),
+  machine_type machine_type NOT NULL,
+  status machine_run_status NOT NULL DEFAULT 'running',
+  started_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  ended_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ended_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE workflow_events (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE,
+  bag_id UUID NOT NULL REFERENCES bags(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  machine_id UUID REFERENCES machines(id) ON DELETE SET NULL,
+  triggered_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  triggered_role user_role,
+  event_type workflow_event_type NOT NULL,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE push_tokens (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token TEXT UNIQUE NOT NULL,
+  platform TEXT NOT NULL CHECK (platform IN ('ios', 'android', 'web')),
+  device_name TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  last_seen_at TIMESTAMPTZ,
+  invalidated_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  recipient_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  booking_id UUID REFERENCES bookings(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  read_at TIMESTAMPTZ,
+  sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER users_set_updated_at
+BEFORE UPDATE ON users
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER students_set_updated_at
+BEFORE UPDATE ON students
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER laundry_services_set_updated_at
+BEFORE UPDATE ON laundry_services
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER laundry_staff_set_updated_at
+BEFORE UPDATE ON laundry_staff
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER bags_set_updated_at
+BEFORE UPDATE ON bags
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER bookings_set_updated_at
+BEFORE UPDATE ON bookings
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER machines_set_updated_at
+BEFORE UPDATE ON machines
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER machine_runs_set_updated_at
+BEFORE UPDATE ON machine_runs
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER push_tokens_set_updated_at
+BEFORE UPDATE ON push_tokens
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- Scalability and hot-path indexes.
+CREATE INDEX idx_students_user_id ON students(user_id);
+CREATE INDEX idx_laundry_staff_user_id ON laundry_staff(user_id);
+CREATE INDEX idx_laundry_staff_service_id ON laundry_staff(laundry_service_id);
+
+CREATE INDEX idx_bags_student_id ON bags(student_id);
+CREATE INDEX idx_bags_qr_version ON bags(qr_version);
+
+CREATE INDEX idx_bookings_student_status_created ON bookings(student_id, status, created_at DESC);
+CREATE INDEX idx_bookings_bag_created ON bookings(bag_id, created_at DESC);
+CREATE INDEX idx_bookings_status_created ON bookings(status, created_at DESC);
+
+CREATE INDEX idx_machines_service_type_active ON machines(laundry_service_id, machine_type, is_active);
+CREATE INDEX idx_machine_runs_machine_status ON machine_runs(machine_id, status);
+CREATE INDEX idx_machine_runs_booking ON machine_runs(booking_id);
+CREATE INDEX idx_machine_runs_bag ON machine_runs(bag_id);
+
+CREATE UNIQUE INDEX uq_machine_runs_running_machine
+ON machine_runs(machine_id)
+WHERE status = 'running';
+
+CREATE INDEX idx_workflow_events_booking_created ON workflow_events(booking_id, created_at);
+CREATE INDEX idx_workflow_events_bag_created ON workflow_events(bag_id, created_at);
+CREATE INDEX idx_workflow_events_student_created ON workflow_events(student_id, created_at);
+
+CREATE INDEX idx_push_tokens_user_active ON push_tokens(user_id, is_active);
+CREATE INDEX idx_notifications_recipient_read_created ON notifications(recipient_user_id, is_read, created_at DESC);
