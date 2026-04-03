@@ -1,10 +1,15 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Tabs } from "expo-router";
 import { useColorScheme } from "nativewind";
+import { useTranslation } from "react-i18next";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function TabsLayout() {
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const isStudent = user?.role === "student";
 
   return (
     <Tabs
@@ -22,7 +27,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: t("tabs.home") as string,
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="home-filled" color={color} size={size} />
           ),
@@ -31,7 +36,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="orders"
         options={{
-          title: "Orders",
+          title: t("tabs.orders") as string,
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons
               name="local-laundry-service"
@@ -44,7 +49,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="scan"
         options={{
-          title: "Scan",
+          href: isStudent ? null : "/(tabs)/scan",
+          title: t("tabs.scan") as string,
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons
               name="qr-code-scanner"
@@ -57,7 +63,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: t("tabs.profile") as string,
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="person" color={color} size={size} />
           ),

@@ -18,12 +18,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../contexts/AuthContext";
 import { UserRole } from "../types/auth";
+import { useTranslation } from "react-i18next";
 
 type AuthMode = "signin" | "signup";
 
 export default function Index() {
   const { colorScheme } = useColorScheme();
   const { login, signup } = useAuth();
+  const { t } = useTranslation();
 
   const [mode, setMode] = useState<AuthMode>("signin");
   const [role, setRole] = useState<UserRole>("student");
@@ -36,7 +38,7 @@ export default function Index() {
   const [password, setPassword] = useState("");
 
   const isDark = colorScheme === "dark";
-  const identifierLabel = role === "student" ? "Email" : "Phone";
+  const identifierLabel = role === "student" ? t("login.email", "Email") : t("login.phone", "Phone");
   const identifierPlaceholder =
     role === "student" ? "student1@washos.com" : "+91-7777777701";
 
@@ -48,18 +50,19 @@ export default function Index() {
   };
 
   const validate = (): boolean => {
+    const valTitle = t("common.validation", "Validation");
     if (!identifier.trim() || !password) {
-      Alert.alert("Validation", `${identifierLabel} and password are required`);
+      Alert.alert(valTitle, t("login.err_required_both", `${identifierLabel} and password are required`));
       return false;
     }
 
     if (mode === "signup") {
       if (!name.trim()) {
-        Alert.alert("Validation", "Name is required");
+        Alert.alert(valTitle, t("login.err_required_name", "Name is required"));
         return false;
       }
       if (role === "student" && !regNo.trim()) {
-        Alert.alert("Validation", "Reg No is required for student signup");
+        Alert.alert(valTitle, t("login.err_required_regno", "Reg No is required for student signup"));
         return false;
       }
     }
@@ -95,11 +98,11 @@ export default function Index() {
         });
       }
 
-      Alert.alert("Success", "Account created. Please sign in.");
+      Alert.alert(t("common.success", "Success"), t("login.success_signup", "Account created. Please sign in."));
       setMode("signin");
       resetForm();
     } catch (error: any) {
-      Alert.alert("Auth Failed", error.message || "Please try again");
+      Alert.alert(t("login.err_auth_failed", "Auth Failed"), error.message || t("login.err_try_again", "Please try again"));
     } finally {
       setSubmitting(false);
     }
@@ -128,10 +131,10 @@ export default function Index() {
           >
             <View className="w-full max-w-md self-center">
               <Text className="mb-2 text-center text-xs font-bold uppercase tracking-[4px] text-primary-dark dark:text-primary">
-                Wash Os
+                {t("login.app_name", "Wash Os")}
               </Text>
               <Text className="text-center text-4xl font-extrabold tracking-tight text-card-foreground dark:text-card-foreground-dark">
-                {mode === "signin" ? "Welcome Back" : "Create Account"}
+                {mode === "signin" ? t("login.welcome") : t("login.signup")}
               </Text>
 
               <View className="mt-8 flex-row rounded-full bg-card p-1 dark:bg-card-dark">
@@ -142,7 +145,7 @@ export default function Index() {
                   <Text
                     className={`text-center text-sm font-bold ${mode === "signin" ? "text-primary-foreground-dark dark:text-primary-foreground" : "text-muted-foreground dark:text-muted-foreground-dark"}`}
                   >
-                    Sign In
+                    {t("login.signin_tab", "Sign In")}
                   </Text>
                 </Pressable>
                 <Pressable
@@ -152,7 +155,7 @@ export default function Index() {
                   <Text
                     className={`text-center text-sm font-bold ${mode === "signup" ? "text-primary-foreground-dark dark:text-primary-foreground" : "text-muted-foreground dark:text-muted-foreground-dark"}`}
                   >
-                    Sign Up
+                    {t("login.signup_tab", "Sign Up")}
                   </Text>
                 </Pressable>
               </View>
@@ -170,7 +173,7 @@ export default function Index() {
                   <Text
                     className={`mt-1 text-xs font-bold ${role === "student" ? "text-primary-dark dark:text-primary" : "text-muted-foreground dark:text-muted-foreground-dark"}`}
                   >
-                    Student
+                    {t("login.role_student", "Student")}
                   </Text>
                 </Pressable>
                 <Pressable
@@ -185,7 +188,7 @@ export default function Index() {
                   <Text
                     className={`mt-1 text-xs font-bold ${role === "laundry_staff" ? "text-primary-dark dark:text-primary" : "text-muted-foreground dark:text-muted-foreground-dark"}`}
                   >
-                    Laundry Staff
+                    {t("login.role_staff", "Laundry Staff")}
                   </Text>
                 </Pressable>
               </View>
@@ -194,12 +197,12 @@ export default function Index() {
                 {mode === "signup" && (
                   <View className="mb-4">
                     <Text className="mb-2 text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
-                      Name
+                      {t("login.name_label", "Name")}
                     </Text>
                     <TextInput
                       value={name}
                       onChangeText={setName}
-                      placeholder="Your full name"
+                      placeholder={t("login.name_placeholder", "Your full name")}
                       placeholderTextColor={isDark ? "#b7b5a9" : "#83827d"}
                       className="rounded-xl border border-border bg-card px-4 py-3 text-foreground dark:border-border-dark dark:bg-card-dark dark:text-foreground-dark"
                     />
@@ -209,7 +212,7 @@ export default function Index() {
                 {mode === "signup" && role === "student" && (
                   <View className="mb-4">
                     <Text className="mb-2 text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
-                      Reg No
+                      {t("login.regno_label", "Reg No")}
                     </Text>
                     <TextInput
                       value={regNo}
@@ -241,7 +244,7 @@ export default function Index() {
 
                 <View>
                   <Text className="mb-2 text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
-                    Password
+                    {t("login.password_label", "Password")}
                   </Text>
                   <View className="flex-row items-center rounded-xl border border-border bg-card px-4 dark:border-border-dark dark:bg-card-dark">
                     <TextInput
@@ -272,14 +275,13 @@ export default function Index() {
                   <ActivityIndicator color={isDark ? "#1a1f37" : "#f9f5ee"} />
                 ) : (
                   <Text className="text-base font-bold tracking-wide text-primary-foreground-dark dark:text-primary-foreground">
-                    {mode === "signin" ? "Sign In" : "Create Account"}
+                    {mode === "signin" ? t("login.login_button") : t("login.signup")}
                   </Text>
                 )}
               </Pressable>
 
               <Text className="mt-6 text-center text-xs text-muted-foreground dark:text-muted-foreground-dark">
-                Session is managed with JWT validation and auto-timeout at 30
-                days.
+                {t("login.footer_info", "Session is managed with JWT validation and auto-timeout at 30 days.")}
               </Text>
             </View>
           </ScrollView>
