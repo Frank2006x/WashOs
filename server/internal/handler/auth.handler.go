@@ -2,7 +2,11 @@ package handler
 
 import (
 	"Frank2006x/washos/internal/auth"
+<<<<<<< HEAD
 	"fmt"
+=======
+	"strings"
+>>>>>>> d717255de7cbf333cba991d9de581fba59498d1e
 
 	dbgen "Frank2006x/washos/internal/repository"
 
@@ -59,16 +63,21 @@ func (h *Handler) Login(c fiber.Ctx) error {
 		})
 	}
 
+<<<<<<< HEAD
 	fmt.Printf("Login Debug: Login successful for user '%s'\n", body.Email)
 
 	// Generate JWT token
 	token, err := auth.GenerateToken(user.ID.String())
+=======
+	accessToken, refreshToken, err := auth.GenerateTokenPair(user.ID.String())
+>>>>>>> d717255de7cbf333cba991d9de581fba59498d1e
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to generate token",
 		})
 	}
 
+<<<<<<< HEAD
 	// Get user profile based on role
 	var profile interface{}
 	switch user.Role {
@@ -96,6 +105,44 @@ func (h *Handler) Login(c fiber.Ctx) error {
 		Token:   token,
 		User:    user,
 		Profile: profile,
+=======
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"token":         accessToken,
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+	})
+}
+
+func (h *Handler) Refresh(c fiber.Ctx) error {
+	type request struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+
+	var body request
+	if err := c.Bind().Body(&body); err != nil {
+		return err
+	}
+
+	body.RefreshToken = strings.TrimSpace(body.RefreshToken)
+	if body.RefreshToken == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "refresh_token is required")
+	}
+
+	userID, err := auth.ParseAndValidateRefreshToken(body.RefreshToken)
+	if err != nil {
+		return fiber.ErrUnauthorized
+	}
+
+	accessToken, refreshToken, err := auth.GenerateTokenPair(userID)
+	if err != nil {
+		return err
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"token":         accessToken,
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+>>>>>>> d717255de7cbf333cba991d9de581fba59498d1e
 	})
 }
 
