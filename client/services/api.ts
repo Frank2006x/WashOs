@@ -239,6 +239,72 @@ export type BagResponse = {
   last_rotated_at?: string;
 };
 
+export type ActiveBookingResponse = {
+  booking: Record<string, any> | null;
+};
+
+export type BookingRecord = {
+  id: string;
+  status: string;
+  row_no?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type BookingListResponse = {
+  bookings: BookingRecord[];
+};
+
+export type BookingDetailResponse = {
+  booking: Record<string, any>;
+};
+
+export type BookingEventsResponse = {
+  events: Record<string, any>[];
+};
+
+export type IntakeScanResponse = {
+  message: string;
+  booking: {
+    booking_id: string;
+    status: string;
+    bag_id: string;
+    student_id: string;
+    reg_no: string;
+    name: string;
+  };
+};
+
+export type NotificationRecord = {
+  id: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  payload?: Record<string, any> | string;
+  read_at?: string;
+  created_at?: string;
+};
+
+export type NotificationListResponse = {
+  notifications: NotificationRecord[];
+};
+
+export type MachineRecord = {
+  id: string;
+  code: string;
+  machine_type: "washer" | "dryer";
+  is_active: boolean;
+};
+
+export type MachineListResponse = {
+  machines: MachineRecord[];
+};
+
+export type PickupVerifyResponse = {
+  verified: boolean;
+  booking: Record<string, any>;
+};
+
 export const studentService = {
   // GET /api/student/me/bag — fetch bag only if it exists (returns null if none)
   async getMyBag(): Promise<BagResponse | null> {
@@ -266,6 +332,217 @@ export const studentService = {
   // PATCH /api/student/me/block — sets hostel block
   async updateMyBlock(block: string): Promise<void> {
     await api.patch("/api/student/me/block", { block });
+  },
+
+  // GET /api/bookings/my/active — returns latest active booking (or null)
+  async getMyActiveBooking(): Promise<ActiveBookingResponse> {
+    const res = await api.get<ActiveBookingResponse>("/api/bookings/my/active");
+    return res.data;
+  },
+
+  // GET /api/bookings/my — paginated booking history for the authenticated student
+  async listMyBookings(limit = 20, offset = 0): Promise<BookingListResponse> {
+    const res = await api.get<BookingListResponse>("/api/bookings/my", {
+      params: { limit, offset },
+    });
+    return res.data;
+  },
+
+  async getBookingByID(bookingID: string): Promise<BookingDetailResponse> {
+    const res = await api.get<BookingDetailResponse>(
+      `/api/bookings/${bookingID}`,
+    );
+    return res.data;
+  },
+
+  async getBookingEvents(bookingID: string): Promise<BookingEventsResponse> {
+    const res = await api.get<BookingEventsResponse>(
+      `/api/bookings/${bookingID}/events`,
+    );
+    return res.data;
+  },
+
+  async collectBooking(bookingID: string): Promise<BookingDetailResponse> {
+    const res = await api.post<BookingDetailResponse>(
+      `/api/bookings/${bookingID}/collect`,
+    );
+    return { booking: res.data?.booking };
+  },
+
+  async pickupVerifyScan(qrCode: string): Promise<PickupVerifyResponse> {
+    const res = await api.post<PickupVerifyResponse>(
+      "/api/scan/pickup-verify",
+      {
+        qr_code: qrCode,
+      },
+    );
+    return res.data;
+  },
+
+  async listUnreadNotifications(
+    limit = 20,
+    offset = 0,
+  ): Promise<NotificationListResponse> {
+    const res = await api.get<NotificationListResponse>(
+      "/api/notifications/my/unread",
+      {
+        params: { limit, offset },
+      },
+    );
+    return res.data;
+  },
+
+  async listNotifications(
+    limit = 50,
+    offset = 0,
+  ): Promise<NotificationListResponse> {
+    const res = await api.get<NotificationListResponse>(
+      "/api/notifications/my",
+      {
+        params: { limit, offset },
+      },
+    );
+    return res.data;
+  },
+
+  async markNotificationRead(notificationID: string): Promise<void> {
+    await api.patch(`/api/notifications/${notificationID}/read`);
+  },
+};
+
+export const staffService = {
+  // POST /api/scan/intake — records bag intake after QR scan
+  async intakeScan(qrCode: string): Promise<IntakeScanResponse> {
+    const res = await api.post<IntakeScanResponse>("/api/scan/intake", {
+      qr_code: qrCode,
+    });
+    return res.data;
+  },
+
+  async listMachines(type: "washer" | "dryer"): Promise<MachineListResponse> {
+    const res = await api.get<MachineListResponse>("/api/machines", {
+      params: { type },
+    });
+    return res.data;
+  },
+
+  async scanWashStart(
+    qrCode: string,
+    machineID: string,
+  ): Promise<BookingDetailResponse> {
+    const res = await api.post<BookingDetailResponse>("/api/scan/wash-start", {
+      qr_code: qrCode,
+      machine_id: machineID,
+    });
+    return { booking: res.data?.booking };
+  },
+
+  async scanWashFinish(
+    qrCode: string,
+    machineID: string,
+  ): Promise<BookingDetailResponse> {
+    const res = await api.post<BookingDetailResponse>("/api/scan/wash-finish", {
+      qr_code: qrCode,
+      machine_id: machineID,
+    });
+    return { booking: res.data?.booking };
+  },
+
+  async scanDryStart(
+    qrCode: string,
+    machineID: string,
+  ): Promise<BookingDetailResponse> {
+    const res = await api.post<BookingDetailResponse>("/api/scan/dry-start", {
+      qr_code: qrCode,
+      machine_id: machineID,
+    });
+    return { booking: res.data?.booking };
+  },
+
+  async scanDryFinish(
+    qrCode: string,
+    machineID: string,
+  ): Promise<BookingDetailResponse> {
+    const res = await api.post<BookingDetailResponse>("/api/scan/dry-finish", {
+      qr_code: qrCode,
+      machine_id: machineID,
+    });
+    return { booking: res.data?.booking };
+  },
+
+  async scanReady(
+    qrCode: string,
+    rowNo: string,
+  ): Promise<BookingDetailResponse> {
+    const res = await api.post<BookingDetailResponse>("/api/scan/ready", {
+      qr_code: qrCode,
+      row_no: rowNo,
+    });
+    return { booking: res.data?.booking };
+  },
+
+  async listProcessingBookings(
+    limit = 20,
+    offset = 0,
+  ): Promise<BookingListResponse> {
+    const res = await api.get<BookingListResponse>("/api/bookings/processing", {
+      params: { limit, offset },
+    });
+    return res.data;
+  },
+
+  async listReadyBookings(
+    limit = 20,
+    offset = 0,
+  ): Promise<BookingListResponse> {
+    const res = await api.get<BookingListResponse>("/api/bookings/ready", {
+      params: { limit, offset },
+    });
+    return res.data;
+  },
+
+  async getBookingByID(bookingID: string): Promise<BookingDetailResponse> {
+    const res = await api.get<BookingDetailResponse>(
+      `/api/bookings/${bookingID}`,
+    );
+    return res.data;
+  },
+
+  async getBookingEvents(bookingID: string): Promise<BookingEventsResponse> {
+    const res = await api.get<BookingEventsResponse>(
+      `/api/bookings/${bookingID}/events`,
+    );
+    return res.data;
+  },
+
+  async listUnreadNotifications(
+    limit = 20,
+    offset = 0,
+  ): Promise<NotificationListResponse> {
+    const res = await api.get<NotificationListResponse>(
+      "/api/notifications/my/unread",
+      {
+        params: { limit, offset },
+      },
+    );
+    return res.data;
+  },
+
+  async listNotifications(
+    limit = 50,
+    offset = 0,
+  ): Promise<NotificationListResponse> {
+    const res = await api.get<NotificationListResponse>(
+      "/api/notifications/my",
+      {
+        params: { limit, offset },
+      },
+    );
+    return res.data;
+  },
+
+  async markNotificationRead(notificationID: string): Promise<void> {
+    await api.patch(`/api/notifications/${notificationID}/read`);
   },
 };
 

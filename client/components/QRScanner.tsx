@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -8,12 +8,12 @@ import {
   Animated,
   ScrollView,
   ActivityIndicator,
-} from 'react-native';
+} from "react-native";
 import {
   CameraView,
   useCameraPermissions,
   BarcodeScanningResult,
-} from 'expo-camera';
+} from "expo-camera";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -29,7 +29,7 @@ export interface QRScannerProps {
   singleScan?: boolean;
 }
 
-type ScanState = 'loading' | 'denied' | 'scanning' | 'success' | 'error';
+type ScanState = "loading" | "denied" | "scanning" | "success" | "error";
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -41,10 +41,14 @@ const QRScanner: React.FC<QRScannerProps> = ({
   const [permission, requestPermission] = useCameraPermissions();
 
   const [scanState, setScanState] = useState<ScanState>(
-    permission === null ? 'loading' : permission?.granted ? 'scanning' : 'denied'
+    permission === null
+      ? "loading"
+      : permission?.granted
+        ? "scanning"
+        : "denied",
   );
   const [scannedData, setScannedData] = useState<any>(null);
-  const [rawValue, setRawValue] = useState<string>('');
+  const [rawValue, setRawValue] = useState<string>("");
   const [parseError, setParseError] = useState(false);
 
   const hasScanned = useRef(false);
@@ -53,15 +57,15 @@ const QRScanner: React.FC<QRScannerProps> = ({
   // ── Permission sync ──────────────────────────────────────────────
   React.useEffect(() => {
     if (permission === null) {
-      setScanState('loading');
+      setScanState("loading");
       return;
     }
     if (permission.granted) {
-      setScanState('scanning');
+      setScanState("scanning");
     } else {
-      setScanState('denied');
+      setScanState("denied");
     }
-  }, [permission]); 
+  }, [permission]);
 
   // ── Flash animation on scan success ─────────────────────────────────────
   const triggerFlash = useCallback(() => {
@@ -86,35 +90,33 @@ const QRScanner: React.FC<QRScannerProps> = ({
       triggerFlash();
 
       let parsed: any;
-      let failed = false;
       try {
         parsed = JSON.parse(data);
       } catch {
         parsed = data;
-        failed = true;
       }
 
       setScannedData(parsed);
-      setParseError(failed);
-      setScanState(failed ? 'error' : 'success');
+      setParseError(false);
+      setScanState("success");
 
       onScan?.(parsed);
     },
-    [singleScan, onScan, triggerFlash]
+    [singleScan, onScan, triggerFlash],
   );
 
   // ── Reset ────────────────────────────────────────────────────────────────
   const handleScanAgain = useCallback(() => {
     hasScanned.current = false;
     setScannedData(null);
-    setRawValue('');
+    setRawValue("");
     setParseError(false);
     flashAnim.setValue(0); // Reset the flash opacity curtain!
-    setScanState('scanning');
+    setScanState("scanning");
   }, [flashAnim]);
 
   // ─── Render: Loading ─────────────────────────────────────────────────────
-  if (scanState === 'loading' || permission === null) {
+  if (scanState === "loading" || permission === null) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -124,7 +126,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
   }
 
   // ─── Render: Permission Denied ───────────────────────────────────────────
-  if (scanState === 'denied') {
+  if (scanState === "denied") {
     return (
       <View style={styles.centered}>
         <Text style={styles.icon}>🚫</Text>
@@ -137,7 +139,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
           style={styles.primaryButton}
           onPress={() =>
             requestPermission().then((r: any) =>
-              setScanState(r.granted ? 'scanning' : 'denied')
+              setScanState(r.granted ? "scanning" : "denied"),
             )
           }
         >
@@ -154,21 +156,21 @@ const QRScanner: React.FC<QRScannerProps> = ({
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{title}</Text>
         <Text style={styles.headerSubtitle}>
-          {scanState === 'scanning'
-            ? 'Point at a QR code to scan'
+          {scanState === "scanning"
+            ? "Point at a QR code to scan"
             : parseError
-            ? 'Invalid QR format'
-            : 'Scan complete!'}
+              ? "Invalid QR format"
+              : "Scan complete!"}
         </Text>
       </View>
 
       {/* Camera / Result area */}
-      {scanState === 'scanning' ? (
+      {scanState === "scanning" ? (
         <View style={styles.cameraWrapper}>
           <CameraView
             style={styles.camera}
             facing="back"
-            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+            barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
             onBarcodeScanned={handleBarCodeScanned}
           >
             {/* Scan overlay */}
@@ -180,7 +182,9 @@ const QRScanner: React.FC<QRScannerProps> = ({
                 <View style={[styles.corner, styles.cornerBL]} />
                 <View style={[styles.corner, styles.cornerBR]} />
               </View>
-              <Text style={styles.overlayHint}>Align QR code within the frame</Text>
+              <Text style={styles.overlayHint}>
+                Align QR code within the frame
+              </Text>
             </View>
           </CameraView>
 
@@ -204,7 +208,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
             ]}
           >
             <Text style={styles.statusBadgeText}>
-              {parseError ? '⚠️  Invalid QR Format' : '✅  Scan Successful'}
+              {parseError ? "⚠️  Invalid QR Format" : "✅  Scan Successful"}
             </Text>
           </View>
 
@@ -227,7 +231,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
           {parseError && (
             <View style={[styles.card, styles.cardError]}>
               <Text style={styles.cardErrorText}>
-                 The scanned QR code does not contain valid JSON data.
+                The scanned QR code does not contain valid JSON data.
               </Text>
             </View>
           )}
@@ -235,10 +239,13 @@ const QRScanner: React.FC<QRScannerProps> = ({
       )}
 
       {/* Scan Again button */}
-      {scanState !== 'scanning' && (
+      {scanState !== "scanning" && (
         <View style={styles.footer}>
-          <TouchableOpacity style={styles.primaryButton} onPress={handleScanAgain}>
-            <Text style={styles.primaryButtonText}>↩  Scan Again</Text>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={handleScanAgain}
+          >
+            <Text style={styles.primaryButtonText}>↩ Scan Again</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -255,10 +262,8 @@ function renderParsedData(data: any, depth = 0): React.ReactNode {
   if (data === null || data === undefined) {
     return <Text style={styles.valueNull}>null</Text>;
   }
-  if (typeof data !== 'object') {
-    return (
-      <Text style={styles.valuePrimitive}>{String(data)}</Text>
-    );
+  if (typeof data !== "object") {
+    return <Text style={styles.valuePrimitive}>{String(data)}</Text>;
   }
   if (Array.isArray(data)) {
     return (
@@ -266,7 +271,9 @@ function renderParsedData(data: any, depth = 0): React.ReactNode {
         {data.map((item, i) => (
           <View key={i} style={styles.row}>
             <Text style={styles.rowKey}>[{i}]</Text>
-            <View style={styles.rowValue}>{renderParsedData(item, depth + 1)}</View>
+            <View style={styles.rowValue}>
+              {renderParsedData(item, depth + 1)}
+            </View>
           </View>
         ))}
       </View>
@@ -277,7 +284,9 @@ function renderParsedData(data: any, depth = 0): React.ReactNode {
       {Object.entries(data).map(([key, value]) => (
         <View key={key} style={styles.row}>
           <Text style={styles.rowKey}>{key}</Text>
-          <View style={styles.rowValue}>{renderParsedData(value, depth + 1)}</View>
+          <View style={styles.rowValue}>
+            {renderParsedData(value, depth + 1)}
+          </View>
         </View>
       ))}
     </View>
@@ -287,16 +296,16 @@ function renderParsedData(data: any, depth = 0): React.ReactNode {
 // ─── Theme ───────────────────────────────────────────────────────────────────
 
 const colors = {
-  primary: '#4F6BED',
-  primaryDark: '#3A52C6',
-  success: '#22C55E',
-  error: '#EF4444',
-  bg: '#0F1117',
-  surface: '#1A1D27',
-  border: '#2A2D3E',
-  text: '#F0F2FF',
-  textMuted: '#8B8FA8',
-  white: '#FFFFFF',
+  primary: "#4F6BED",
+  primaryDark: "#3A52C6",
+  success: "#22C55E",
+  error: "#EF4444",
+  bg: "#0F1117",
+  surface: "#1A1D27",
+  border: "#2A2D3E",
+  text: "#F0F2FF",
+  textMuted: "#8B8FA8",
+  white: "#FFFFFF",
 };
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
@@ -310,8 +319,8 @@ const styles = StyleSheet.create({
   centered: {
     flex: 1,
     backgroundColor: colors.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 32,
   },
 
@@ -325,7 +334,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.text,
     letterSpacing: 0.4,
   },
@@ -338,24 +347,24 @@ const styles = StyleSheet.create({
   // Camera
   cameraWrapper: {
     flex: 1,
-    position: 'relative',
+    position: "relative",
   },
   camera: {
     flex: 1,
   },
   overlay: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.45)",
   },
   scanFrame: {
     width: 240,
     height: 240,
-    position: 'relative',
+    position: "relative",
   },
   corner: {
-    position: 'absolute',
+    position: "absolute",
     width: 32,
     height: 32,
     borderColor: colors.primary,
@@ -389,21 +398,21 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
   },
   statusBadgeSuccess: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    backgroundColor: "rgba(34, 197, 94, 0.15)",
     borderWidth: 1,
     borderColor: colors.success,
   },
   statusBadgeError: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
     borderWidth: 1,
     borderColor: colors.error,
   },
   statusBadgeText: {
     color: colors.text,
-    fontWeight: '600',
+    fontWeight: "600",
     fontSize: 14,
   },
 
@@ -416,19 +425,19 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   cardError: {
-    borderColor: 'rgba(239,68,68,0.4)',
-    backgroundColor: 'rgba(239,68,68,0.08)',
+    borderColor: "rgba(239,68,68,0.4)",
+    backgroundColor: "rgba(239,68,68,0.08)",
   },
   cardLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     letterSpacing: 1,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     color: colors.textMuted,
     marginBottom: 10,
   },
   cardRaw: {
-    fontFamily: 'monospace',
+    fontFamily: "monospace",
     fontSize: 13,
     color: colors.text,
     lineHeight: 20,
@@ -441,15 +450,15 @@ const styles = StyleSheet.create({
 
   // Parsed JSON rows
   row: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     paddingVertical: 4,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   rowKey: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.primary,
     width: 110,
     flexShrink: 0,
@@ -464,7 +473,7 @@ const styles = StyleSheet.create({
   valueNull: {
     fontSize: 13,
     color: colors.textMuted,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
 
   // Footer
@@ -477,11 +486,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: 14,
-    alignItems: 'center',
+    alignItems: "center",
   },
   primaryButtonText: {
     color: colors.white,
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 15,
     letterSpacing: 0.3,
   },
@@ -493,15 +502,15 @@ const styles = StyleSheet.create({
   },
   deniedTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.text,
     marginBottom: 10,
-    textAlign: 'center',
+    textAlign: "center",
   },
   deniedBody: {
     fontSize: 14,
     color: colors.textMuted,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
     marginBottom: 28,
   },

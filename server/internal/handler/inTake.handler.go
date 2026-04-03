@@ -373,6 +373,477 @@ func (h *Handler) WashCompleteScan(c fiber.Ctx) error {
 	}
 }
 
+func (h *Handler) resolveMachineForStaff(c fiber.Ctx, staff dbgen.LaundryStaff, machineIDStr string, expectedType dbgen.MachineType) (dbgen.Machine, error) {
+	machineIDStr = strings.TrimSpace(machineIDStr)
+	if machineIDStr == "" {
+		return dbgen.Machine{}, fiber.NewError(fiber.StatusBadRequest, "machine_id is required")
+	}
+
+	var machineID pgtype.UUID
+	if err := machineID.Scan(machineIDStr); err != nil {
+		return dbgen.Machine{}, fiber.NewError(fiber.StatusBadRequest, "invalid machine id")
+	}
+
+	machine, err := h.Queries.GetMachineByID(c.Context(), machineID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return dbgen.Machine{}, fiber.NewError(fiber.StatusNotFound, "machine not found")
+		}
+		return dbgen.Machine{}, fiber.NewError(fiber.StatusInternalServerError, "failed to fetch machine")
+	}
+
+	if !machine.IsActive {
+		return dbgen.Machine{}, fiber.NewError(fiber.StatusConflict, "machine is not active")
+	}
+
+	if machine.MachineType != expectedType {
+		return dbgen.Machine{}, fiber.NewError(fiber.StatusBadRequest, "machine type does not match selected phase")
+	}
+
+	if pgUUIDToStr(machine.LaundryServiceID) != pgUUIDToStr(staff.LaundryServiceID) {
+		return dbgen.Machine{}, fiber.NewError(fiber.StatusForbidden, "machine does not belong to your laundry service")
+	}
+
+	return machine, nil
+}
+
+// GET /api/machines?type=washer|dryer
+func (h *Handler) ListMachines(c fiber.Ctx) error {
+	staff, _, err := h.requireStaff(c)
+	if err != nil {
+		return err
+	}
+
+	typeStr := strings.ToLower(strings.TrimSpace(c.Query("type")))
+	var machineType dbgen.MachineType
+	switch typeStr {
+	case "washer":
+		machineType = dbgen.MachineTypeWasher
+	case "dryer":
+		machineType = dbgen.MachineTypeDryer
+	default:
+		return fiber.NewError(fiber.StatusBadRequest, "type must be washer or dryer")
+	}
+
+	machines, err := h.Queries.ListMachinesByType(c.Context(), machineType)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to list machines")
+	}
+
+	filtered := make([]dbgen.Machine, 0, len(machines))
+	for _, m := range machines {
+		if pgUUIDToStr(m.LaundryServiceID) == pgUUIDToStr(staff.LaundryServiceID) {
+			filtered = append(filtered, m)
+		}
+	}
+
+	return c.JSON(fiber.Map{"machines": filtered})
+}
+
+// POST /api/scan/wash-start
+func (h *Handler) WashStartScan(c fiber.Ctx) error {
+	staff, actorUserID, err := h.requireStaff(c)
+	if err != nil {
+		return err
+	}
+
+	var body struct {
+		QRCode   string `json:"qr_code"`
+		MachineID string `json:"machine_id"`
+	}
+	if err := c.Bind().Body(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	body.QRCode = strings.TrimSpace(body.QRCode)
+	if body.QRCode == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "qr_code is required")
+	}
+
+	machine, err := h.resolveMachineForStaff(c, staff, body.MachineID, dbgen.MachineTypeWasher)
+	if err != nil {
+		return err
+	}
+
+	bag, student, version, err := h.fetchValidatedBagFromQR(c, body.QRCode)
+	if err != nil {
+		return err
+	}
+
+	booking, err := h.Queries.GetLatestActiveBookingByBagID(c.Context(), bag.ID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "no active booking found for this bag")
+		}
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch active booking")
+	}
+
+	if booking.Status != dbgen.BookingStatusDroppedOff {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "booking must be dropped_off before wash start", "booking": booking})
+	}
+
+	if _, runErr := h.Queries.GetRunningMachineRunByMachineID(c.Context(), machine.ID); runErr == nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "selected machine is busy"})
+	} else if runErr != pgx.ErrNoRows {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to check machine availability")
+	}
+
+	booking, err = h.Queries.SetBookingWashing(c.Context(), dbgen.SetBookingWashingParams{
+		ID:              booking.ID,
+		LastActorUserID: actorUserID,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to mark booking washing")
+	}
+
+	_, err = h.Queries.CreateMachineRun(c.Context(), dbgen.CreateMachineRunParams{
+		BookingID:        booking.ID,
+		BagID:            bag.ID,
+		MachineID:        machine.ID,
+		MachineType:      dbgen.MachineTypeWasher,
+		StartedByUserID:  pgtype.UUID{Bytes: actorUserID.Bytes, Valid: true},
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to create wash machine run")
+	}
+
+	metadata, _ := json.Marshal(map[string]interface{}{"source": "scan_wash_start", "qr_version": version, "machine_code": machine.Code})
+	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+		BagID:             bag.ID,
+		StudentID:         student.ID,
+		MachineID:         pgtype.UUID{Bytes: machine.ID.Bytes, Valid: true},
+		TriggeredByUserID: actorUserID,
+		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
+		EventType:         dbgen.WorkflowEventTypeWashStarted,
+		Metadata:          metadata,
+	})
+
+	return c.JSON(fiber.Map{"message": "wash started", "booking": booking, "machine": machine})
+}
+
+// POST /api/scan/wash-finish
+func (h *Handler) WashFinishScan(c fiber.Ctx) error {
+	staff, actorUserID, err := h.requireStaff(c)
+	if err != nil {
+		return err
+	}
+
+	var body struct {
+		QRCode    string `json:"qr_code"`
+		MachineID string `json:"machine_id"`
+	}
+	if err := c.Bind().Body(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	body.QRCode = strings.TrimSpace(body.QRCode)
+	if body.QRCode == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "qr_code is required")
+	}
+
+	machine, err := h.resolveMachineForStaff(c, staff, body.MachineID, dbgen.MachineTypeWasher)
+	if err != nil {
+		return err
+	}
+
+	bag, student, version, err := h.fetchValidatedBagFromQR(c, body.QRCode)
+	if err != nil {
+		return err
+	}
+
+	booking, err := h.Queries.GetLatestActiveBookingByBagID(c.Context(), bag.ID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "no active booking found for this bag")
+		}
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch active booking")
+	}
+
+	if booking.Status != dbgen.BookingStatusWashing {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "booking must be washing before wash finish", "booking": booking})
+	}
+
+	run, runErr := h.Queries.GetRunningMachineRunByMachineID(c.Context(), machine.ID)
+	if runErr == pgx.ErrNoRows {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "no running wash found on selected machine"})
+	}
+	if runErr != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch running machine run")
+	}
+
+	if pgUUIDToStr(run.BookingID) != pgUUIDToStr(booking.ID) || pgUUIDToStr(run.BagID) != pgUUIDToStr(bag.ID) || run.MachineType != dbgen.MachineTypeWasher {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "selected machine is not running this bag wash"})
+	}
+
+	_, err = h.Queries.FinishMachineRun(c.Context(), dbgen.FinishMachineRunParams{
+		ID:            run.ID,
+		EndedByUserID: pgtype.UUID{Bytes: actorUserID.Bytes, Valid: true},
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to finish wash machine run")
+	}
+
+	booking, err = h.Queries.SetBookingWashDone(c.Context(), dbgen.SetBookingWashDoneParams{
+		ID:              booking.ID,
+		LastActorUserID: actorUserID,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to mark booking wash_done")
+	}
+
+	metadata, _ := json.Marshal(map[string]interface{}{"source": "scan_wash_finish", "qr_version": version, "machine_code": machine.Code})
+	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+		BagID:             bag.ID,
+		StudentID:         student.ID,
+		MachineID:         pgtype.UUID{Bytes: machine.ID.Bytes, Valid: true},
+		TriggeredByUserID: actorUserID,
+		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
+		EventType:         dbgen.WorkflowEventTypeWashFinished,
+		Metadata:          metadata,
+	})
+
+	return c.JSON(fiber.Map{"message": "wash finished", "booking": booking, "machine": machine})
+}
+
+// POST /api/scan/dry-start
+func (h *Handler) DryStartScan(c fiber.Ctx) error {
+	staff, actorUserID, err := h.requireStaff(c)
+	if err != nil {
+		return err
+	}
+
+	var body struct {
+		QRCode    string `json:"qr_code"`
+		MachineID string `json:"machine_id"`
+	}
+	if err := c.Bind().Body(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	body.QRCode = strings.TrimSpace(body.QRCode)
+	if body.QRCode == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "qr_code is required")
+	}
+
+	machine, err := h.resolveMachineForStaff(c, staff, body.MachineID, dbgen.MachineTypeDryer)
+	if err != nil {
+		return err
+	}
+
+	bag, student, version, err := h.fetchValidatedBagFromQR(c, body.QRCode)
+	if err != nil {
+		return err
+	}
+
+	booking, err := h.Queries.GetLatestActiveBookingByBagID(c.Context(), bag.ID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "no active booking found for this bag")
+		}
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch active booking")
+	}
+
+	if booking.Status != dbgen.BookingStatusWashDone {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "booking must be wash_done before dry start", "booking": booking})
+	}
+
+	if _, runErr := h.Queries.GetRunningMachineRunByMachineID(c.Context(), machine.ID); runErr == nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "selected machine is busy"})
+	} else if runErr != pgx.ErrNoRows {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to check machine availability")
+	}
+
+	booking, err = h.Queries.SetBookingDrying(c.Context(), dbgen.SetBookingDryingParams{
+		ID:              booking.ID,
+		LastActorUserID: actorUserID,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to mark booking drying")
+	}
+
+	_, err = h.Queries.CreateMachineRun(c.Context(), dbgen.CreateMachineRunParams{
+		BookingID:       booking.ID,
+		BagID:           bag.ID,
+		MachineID:       machine.ID,
+		MachineType:     dbgen.MachineTypeDryer,
+		StartedByUserID: pgtype.UUID{Bytes: actorUserID.Bytes, Valid: true},
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to create dry machine run")
+	}
+
+	metadata, _ := json.Marshal(map[string]interface{}{"source": "scan_dry_start", "qr_version": version, "machine_code": machine.Code})
+	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+		BagID:             bag.ID,
+		StudentID:         student.ID,
+		MachineID:         pgtype.UUID{Bytes: machine.ID.Bytes, Valid: true},
+		TriggeredByUserID: actorUserID,
+		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
+		EventType:         dbgen.WorkflowEventTypeDryStarted,
+		Metadata:          metadata,
+	})
+
+	return c.JSON(fiber.Map{"message": "dry started", "booking": booking, "machine": machine})
+}
+
+// POST /api/scan/dry-finish
+func (h *Handler) DryFinishScan(c fiber.Ctx) error {
+	staff, actorUserID, err := h.requireStaff(c)
+	if err != nil {
+		return err
+	}
+
+	var body struct {
+		QRCode    string `json:"qr_code"`
+		MachineID string `json:"machine_id"`
+	}
+	if err := c.Bind().Body(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	body.QRCode = strings.TrimSpace(body.QRCode)
+	if body.QRCode == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "qr_code is required")
+	}
+
+	machine, err := h.resolveMachineForStaff(c, staff, body.MachineID, dbgen.MachineTypeDryer)
+	if err != nil {
+		return err
+	}
+
+	bag, student, version, err := h.fetchValidatedBagFromQR(c, body.QRCode)
+	if err != nil {
+		return err
+	}
+
+	booking, err := h.Queries.GetLatestActiveBookingByBagID(c.Context(), bag.ID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "no active booking found for this bag")
+		}
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch active booking")
+	}
+
+	if booking.Status != dbgen.BookingStatusDrying {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "booking must be drying before dry finish", "booking": booking})
+	}
+
+	run, runErr := h.Queries.GetRunningMachineRunByMachineID(c.Context(), machine.ID)
+	if runErr == pgx.ErrNoRows {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "no running dry found on selected machine"})
+	}
+	if runErr != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch running machine run")
+	}
+
+	if pgUUIDToStr(run.BookingID) != pgUUIDToStr(booking.ID) || pgUUIDToStr(run.BagID) != pgUUIDToStr(bag.ID) || run.MachineType != dbgen.MachineTypeDryer {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "selected machine is not running this bag dry cycle"})
+	}
+
+	_, err = h.Queries.FinishMachineRun(c.Context(), dbgen.FinishMachineRunParams{
+		ID:            run.ID,
+		EndedByUserID: pgtype.UUID{Bytes: actorUserID.Bytes, Valid: true},
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to finish dry machine run")
+	}
+
+	booking, err = h.Queries.SetBookingDryDone(c.Context(), dbgen.SetBookingDryDoneParams{
+		ID:              booking.ID,
+		LastActorUserID: actorUserID,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to mark booking dry_done")
+	}
+
+	metadata, _ := json.Marshal(map[string]interface{}{"source": "scan_dry_finish", "qr_version": version, "machine_code": machine.Code})
+	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+		BagID:             bag.ID,
+		StudentID:         student.ID,
+		MachineID:         pgtype.UUID{Bytes: machine.ID.Bytes, Valid: true},
+		TriggeredByUserID: actorUserID,
+		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
+		EventType:         dbgen.WorkflowEventTypeDryFinished,
+		Metadata:          metadata,
+	})
+
+	return c.JSON(fiber.Map{"message": "dry finished", "booking": booking, "machine": machine})
+}
+
+// POST /api/scan/ready
+func (h *Handler) ReadyScan(c fiber.Ctx) error {
+	_, actorUserID, err := h.requireStaff(c)
+	if err != nil {
+		return err
+	}
+
+	var body struct {
+		QRCode string `json:"qr_code"`
+		RowNo  string `json:"row_no"`
+	}
+	if err := c.Bind().Body(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	body.QRCode = strings.TrimSpace(body.QRCode)
+	body.RowNo = strings.TrimSpace(body.RowNo)
+	if body.QRCode == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "qr_code is required")
+	}
+	if body.RowNo == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "row_no is required")
+	}
+
+	bag, student, version, err := h.fetchValidatedBagFromQR(c, body.QRCode)
+	if err != nil {
+		return err
+	}
+
+	booking, err := h.Queries.GetLatestActiveBookingByBagID(c.Context(), bag.ID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "no active booking found for this bag")
+		}
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch active booking")
+	}
+
+	if booking.Status != dbgen.BookingStatusDryDone {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "booking must be dry_done before ready scan", "booking": booking})
+	}
+
+	booking, err = h.Queries.SetBookingReady(c.Context(), dbgen.SetBookingReadyParams{
+		ID:              booking.ID,
+		RowNo:           pgtype.Text{String: body.RowNo, Valid: true},
+		LastActorUserID: actorUserID,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to mark booking ready")
+	}
+
+	metadata, _ := json.Marshal(map[string]interface{}{"source": "scan_ready", "qr_version": version, "row_no": body.RowNo})
+	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+		BagID:             bag.ID,
+		StudentID:         student.ID,
+		TriggeredByUserID: actorUserID,
+		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
+		EventType:         dbgen.WorkflowEventTypeMarkedReady,
+		Metadata:          metadata,
+	})
+
+	if studentRecord, sErr := h.Queries.GetStudentByID(c.Context(), booking.StudentID); sErr == nil {
+		payload, _ := json.Marshal(map[string]interface{}{"booking_id": pgUUIDToStr(booking.ID), "status": booking.Status, "row_no": body.RowNo})
+		_, _ = h.Queries.CreateNotification(c.Context(), dbgen.CreateNotificationParams{
+			RecipientUserID: studentRecord.UserID,
+			BookingID:       pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+			Title:           "Laundry Ready for Pickup",
+			Message:         "Your laundry is ready for pickup.",
+			Payload:         payload,
+		})
+	}
+
+	return c.JSON(fiber.Map{"message": "booking marked ready_for_pickup", "booking": booking})
+}
+
 func parsePagination(c fiber.Ctx) (int32, int32, error) {
 	limit := int32(20)
 	offset := int32(0)
@@ -408,6 +879,33 @@ func currentUserIDFromCtx(c fiber.Ctx) (pgtype.UUID, error) {
 	}
 
 	return userID, nil
+}
+
+// GET /api/bookings/my
+func (h *Handler) ListMyBookings(c fiber.Ctx) error {
+	student, err := h.requireStudent(c)
+	if err != nil {
+		return err
+	}
+
+	limit, offset, err := parsePagination(c)
+	if err != nil {
+		return err
+	}
+
+	bookings, err := h.Queries.GetStudentBookings(c.Context(), dbgen.GetStudentBookingsParams{
+		StudentID: student.ID,
+		Limit:     limit,
+		Offset:    offset,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to list student bookings")
+	}
+	if bookings == nil {
+		bookings = []dbgen.Booking{}
+	}
+
+	return c.JSON(fiber.Map{"bookings": bookings})
 }
 
 // GET /api/bookings/processing
@@ -512,6 +1010,178 @@ func (h *Handler) GetBookingDetails(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"booking": booking})
+}
+
+// GET /api/bookings/:id/events
+func (h *Handler) GetBookingEvents(c fiber.Ctx) error {
+	bookingIDStr := strings.TrimSpace(c.Params("id"))
+	if bookingIDStr == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "booking id is required")
+	}
+
+	var bookingID pgtype.UUID
+	if err := bookingID.Scan(bookingIDStr); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid booking id")
+	}
+
+	booking, err := h.Queries.GetBookingByID(c.Context(), bookingID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "booking not found")
+		}
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch booking")
+	}
+
+	if _, _, err := h.requireStaff(c); err != nil {
+		student, sErr := h.requireStudent(c)
+		if sErr != nil {
+			return fiber.NewError(fiber.StatusForbidden, "not allowed to access this booking")
+		}
+		if pgUUIDToStr(booking.StudentID) != pgUUIDToStr(student.ID) {
+			return fiber.NewError(fiber.StatusForbidden, "not allowed to access this booking")
+		}
+	}
+
+	events, err := h.Queries.GetBookingWorkflowEvents(c.Context(), bookingID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch booking events")
+	}
+	if events == nil {
+		events = []dbgen.WorkflowEvent{}
+	}
+
+	return c.JSON(fiber.Map{"events": events})
+}
+
+// POST /api/bookings/:id/wash-complete
+func (h *Handler) MarkBookingWashComplete(c fiber.Ctx) error {
+	_, actorUserID, err := h.requireStaff(c)
+	if err != nil {
+		return err
+	}
+
+	bookingIDStr := strings.TrimSpace(c.Params("id"))
+	if bookingIDStr == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "booking id is required")
+	}
+
+	var bookingID pgtype.UUID
+	if err := bookingID.Scan(bookingIDStr); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid booking id")
+	}
+
+	booking, err := h.Queries.GetBookingByID(c.Context(), bookingID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "booking not found")
+		}
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch booking")
+	}
+
+	switch booking.Status {
+	case dbgen.BookingStatusDroppedOff, dbgen.BookingStatusWashing:
+		booking, err = h.Queries.SetBookingWashDone(c.Context(), dbgen.SetBookingWashDoneParams{
+			ID:              booking.ID,
+			LastActorUserID: actorUserID,
+		})
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "failed to mark booking wash_done")
+		}
+
+		metadata, _ := json.Marshal(map[string]interface{}{"source": "booking_action"})
+		_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+			BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+			BagID:             booking.BagID,
+			StudentID:         booking.StudentID,
+			TriggeredByUserID: actorUserID,
+			TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
+			EventType:         dbgen.WorkflowEventTypeWashFinished,
+			Metadata:          metadata,
+		})
+
+		return c.JSON(fiber.Map{"message": "booking marked wash_done", "booking": booking})
+	case dbgen.BookingStatusWashDone, dbgen.BookingStatusDrying, dbgen.BookingStatusDryDone, dbgen.BookingStatusReadyForPickup, dbgen.BookingStatusCollected:
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "booking already past wash completion stage", "booking": booking})
+	default:
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "booking is not in washable stage", "booking": booking})
+	}
+}
+
+// POST /api/bookings/:id/ready
+func (h *Handler) MarkBookingReady(c fiber.Ctx) error {
+	_, actorUserID, err := h.requireStaff(c)
+	if err != nil {
+		return err
+	}
+
+	bookingIDStr := strings.TrimSpace(c.Params("id"))
+	if bookingIDStr == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "booking id is required")
+	}
+
+	var bookingID pgtype.UUID
+	if err := bookingID.Scan(bookingIDStr); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid booking id")
+	}
+
+	var body struct {
+		RowNo string `json:"row_no"`
+	}
+	if err := c.Bind().Body(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	body.RowNo = strings.TrimSpace(body.RowNo)
+	if body.RowNo == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "row_no is required")
+	}
+
+	booking, err := h.Queries.GetBookingByID(c.Context(), bookingID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "booking not found")
+		}
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch booking")
+	}
+
+	if booking.Status != dbgen.BookingStatusWashDone && booking.Status != dbgen.BookingStatusDryDone {
+		if booking.Status == dbgen.BookingStatusReadyForPickup {
+			return c.JSON(fiber.Map{"message": "booking already ready", "booking": booking})
+		}
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "booking must be wash_done or dry_done before marking ready", "booking": booking})
+	}
+
+	booking, err = h.Queries.SetBookingReady(c.Context(), dbgen.SetBookingReadyParams{
+		ID:              booking.ID,
+		RowNo:           pgtype.Text{String: body.RowNo, Valid: true},
+		LastActorUserID: actorUserID,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to mark booking ready")
+	}
+
+	metadata, _ := json.Marshal(map[string]interface{}{"source": "booking_action", "row_no": body.RowNo})
+	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+		BagID:             booking.BagID,
+		StudentID:         booking.StudentID,
+		TriggeredByUserID: actorUserID,
+		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
+		EventType:         dbgen.WorkflowEventTypeMarkedReady,
+		Metadata:          metadata,
+	})
+
+	if student, sErr := h.Queries.GetStudentByID(c.Context(), booking.StudentID); sErr == nil {
+		payload, _ := json.Marshal(map[string]interface{}{"booking_id": pgUUIDToStr(booking.ID), "status": booking.Status})
+		_, _ = h.Queries.CreateNotification(c.Context(), dbgen.CreateNotificationParams{
+			RecipientUserID: student.UserID,
+			BookingID:       pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+			Title:           "Laundry Ready for Pickup",
+			Message:         "Your laundry is ready for pickup.",
+			Payload:         payload,
+		})
+	}
+
+	return c.JSON(fiber.Map{"message": "booking marked ready_for_pickup", "booking": booking})
 }
 
 // POST /api/scan/pickup-verify
@@ -636,6 +1306,33 @@ func (h *Handler) CollectBooking(c fiber.Ctx) error {
 		"message": "booking collected",
 		"booking": booking,
 	})
+}
+
+// GET /api/notifications/my/unread
+func (h *Handler) ListMyNotifications(c fiber.Ctx) error {
+	userID, err := currentUserIDFromCtx(c)
+	if err != nil {
+		return err
+	}
+
+	limit, offset, err := parsePagination(c)
+	if err != nil {
+		return err
+	}
+
+	notifications, err := h.Queries.ListNotificationsByUser(c.Context(), dbgen.ListNotificationsByUserParams{
+		RecipientUserID: userID,
+		Limit:           limit,
+		Offset:          offset,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to list notifications")
+	}
+	if notifications == nil {
+		notifications = []dbgen.Notification{}
+	}
+
+	return c.JSON(fiber.Map{"notifications": notifications})
 }
 
 // GET /api/notifications/my/unread

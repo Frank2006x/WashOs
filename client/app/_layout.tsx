@@ -5,7 +5,7 @@ import "../global.css";
 import "../i18n";
 
 function RootLayoutNav() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -13,16 +13,42 @@ function RootLayoutNav() {
     // Wait until auth state is resolved from storage
     if (loading) return;
 
-    const inTabsGroup = segments[0] === "(tabs)";
+    const topSegment = segments[0];
+    const inLogin = topSegment === "login";
+    const inSharedBooking = topSegment === "booking";
+    const inStudentGroup = topSegment === "student";
+    const inStaffGroup = topSegment === "staff";
+    const inLegacyTabsGroup = topSegment === "(tabs)";
 
-    if (!isAuthenticated && inTabsGroup) {
-      // Logged out while inside the app → go to login
+    if (!isAuthenticated && !inLogin) {
       router.replace("/login");
-    } else if (isAuthenticated && !inTabsGroup) {
-      // Logged in but on login screen → go to app
-      router.replace("/(tabs)");
+      return;
     }
-  }, [isAuthenticated, loading, segments, router]);
+
+    if (!isAuthenticated) {
+      return;
+    }
+
+    const isStudent = user?.role === "student";
+    const isStaff = user?.role === "laundry_staff";
+
+    if (isStudent && !inStudentGroup) {
+      if (inSharedBooking) return;
+      router.replace("/student");
+      return;
+    }
+
+    if (isStaff && !inStaffGroup) {
+      if (inSharedBooking) return;
+      router.replace("/staff");
+      return;
+    }
+
+    // Fallback for unexpected legacy group visits.
+    if (inLegacyTabsGroup) {
+      router.replace(isStudent ? "/student" : "/staff");
+    }
+  }, [isAuthenticated, loading, segments, router, user]);
 
   // CRITICAL: <Slot /> must ALWAYS be rendered.
   // Without it the navigator doesn't exist and router.replace() silently fails,
