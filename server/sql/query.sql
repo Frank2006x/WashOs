@@ -150,6 +150,21 @@ WHERE status = 'ready_for_pickup'
 ORDER BY ready_at DESC NULLS LAST, updated_at DESC
 LIMIT $1 OFFSET $2;
 
+-- name: CountBookingsOverview :many
+SELECT status,
+       COUNT(*)::bigint AS total
+FROM bookings
+GROUP BY status
+ORDER BY status;
+
+-- name: ListBookingsByBlock :many
+SELECT b.*
+FROM bookings b
+JOIN students s ON s.id = b.student_id
+WHERE UPPER(COALESCE(s.block, '')) = UPPER($1)
+ORDER BY b.updated_at DESC
+LIMIT $2 OFFSET $3;
+
 -- name: UpdateBookingStatus :one
 UPDATE bookings
 SET status = $2,

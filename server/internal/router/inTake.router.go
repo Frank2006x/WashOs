@@ -31,4 +31,10 @@ func SetupPhase2Routes(app *fiber.App, h *handler.Handler) {
 	notificationGroup := apiGroup.Group("/notifications", auth.AuthMiddleware)
 	notificationGroup.Get("/my/unread", h.ListMyUnreadNotifications)
 	notificationGroup.Patch("/:id/read", h.MarkMyNotificationRead)
+
+	adminGroup := apiGroup.Group("/admin", auth.AuthMiddleware)
+	adminGroup.Get("/bookings/overview", h.AdminBookingsOverview)
+
+	wardenGroup := apiGroup.Group("/warden", auth.AuthMiddleware)
+	wardenGroup.Get("/bookings/block/:blockId", h.WardenBookingsByBlock)
 }

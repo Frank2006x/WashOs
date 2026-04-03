@@ -11,6 +11,39 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countBookingsOverview = `-- name: CountBookingsOverview :many
+SELECT status,
+       COUNT(*)::bigint AS total
+FROM bookings
+GROUP BY status
+ORDER BY status
+`
+
+type CountBookingsOverviewRow struct {
+	Status BookingStatus `json:"status"`
+	Total  int64         `json:"total"`
+}
+
+func (q *Queries) CountBookingsOverview(ctx context.Context) ([]CountBookingsOverviewRow, error) {
+	rows, err := q.db.Query(ctx, countBookingsOverview)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountBookingsOverviewRow
+	for rows.Next() {
+		var i CountBookingsOverviewRow
+		if err := rows.Scan(&i.Status, &i.Total); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createBooking = `-- name: CreateBooking :one
 
 INSERT INTO bookings (student_id, bag_id, status)
@@ -762,6 +795,58 @@ func (q *Queries) InitStudentBag(ctx context.Context, studentID pgtype.UUID) (Ba
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listBookingsByBlock = `-- name: ListBookingsByBlock :many
+SELECT b.id, b.student_id, b.bag_id, b.status, b.received_at, b.wash_started_at, b.wash_finished_at, b.dry_started_at, b.dry_finished_at, b.ready_at, b.collected_at, b.row_no, b.notes, b.last_actor_user_id, b.created_at, b.updated_at
+FROM bookings b
+JOIN students s ON s.id = b.student_id
+WHERE UPPER(COALESCE(s.block, '')) = UPPER($1)
+ORDER BY b.updated_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListBookingsByBlockParams struct {
+	Upper  interface{} `json:"upper"`
+	Limit  int32       `json:"limit"`
+	Offset int32       `json:"offset"`
+}
+
+func (q *Queries) ListBookingsByBlock(ctx context.Context, arg ListBookingsByBlockParams) ([]Booking, error) {
+	rows, err := q.db.Query(ctx, listBookingsByBlock, arg.Upper, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Booking
+	for rows.Next() {
+		var i Booking
+		if err := rows.Scan(
+			&i.ID,
+			&i.StudentID,
+			&i.BagID,
+			&i.Status,
+			&i.ReceivedAt,
+			&i.WashStartedAt,
+			&i.WashFinishedAt,
+			&i.DryStartedAt,
+			&i.DryFinishedAt,
+			&i.ReadyAt,
+			&i.CollectedAt,
+			&i.RowNo,
+			&i.Notes,
+			&i.LastActorUserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listMachinesByType = `-- name: ListMachinesByType :many
