@@ -396,6 +396,20 @@ func parsePagination(c fiber.Ctx) (int32, int32, error) {
 	return limit, offset, nil
 }
 
+func currentUserIDFromCtx(c fiber.Ctx) (pgtype.UUID, error) {
+	userIDStr, ok := c.Locals("user_id").(string)
+	if !ok || strings.TrimSpace(userIDStr) == "" {
+		return pgtype.UUID{}, fiber.ErrUnauthorized
+	}
+
+	var userID pgtype.UUID
+	if err := userID.Scan(strings.TrimSpace(userIDStr)); err != nil {
+		return pgtype.UUID{}, fiber.ErrUnauthorized
+	}
+
+	return userID, nil
+}
+
 // GET /api/bookings/processing
 func (h *Handler) ListProcessingBookings(c fiber.Ctx) error {
 	if _, _, err := h.requireStaff(c); err != nil {
@@ -498,4 +512,186 @@ func (h *Handler) GetBookingDetails(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"booking": booking})
+}
+
+// POST /api/scan/pickup-verify
+func (h *Handler) PickupVerifyScan(c fiber.Ctx) error {
+	student, err := h.requireStudent(c)
+	if err != nil {
+		return err
+	}
+
+	var body struct {
+		QRCode string `json:"qr_code"`
+	}
+	if err := c.Bind().Body(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	body.QRCode = strings.TrimSpace(body.QRCode)
+	if body.QRCode == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "qr_code is required")
+	}
+
+	bag, _, _, err := h.fetchValidatedBagFromQR(c, body.QRCode)
+	if err != nil {
+		return err
+	}
+
+	if pgUUIDToStr(bag.StudentID) != pgUUIDToStr(student.ID) {
+		return fiber.NewError(fiber.StatusForbidden, "bag does not belong to the authenticated student")
+	}
+
+	booking, err := h.Queries.GetLatestActiveBookingByBagID(c.Context(), bag.ID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "no active booking found for this bag")
+		}
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch active booking")
+	}
+
+	if booking.Status != dbgen.BookingStatusReadyForPickup {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error":          "booking is not ready for pickup",
+			"current_status": booking.Status,
+			"booking_id":     pgUUIDToStr(booking.ID),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"verified": true,
+		"booking":  booking,
+	})
+}
+
+// POST /api/bookings/:id/collect
+func (h *Handler) CollectBooking(c fiber.Ctx) error {
+	student, err := h.requireStudent(c)
+	if err != nil {
+		return err
+	}
+
+	actorUserID, err := currentUserIDFromCtx(c)
+	if err != nil {
+		return err
+	}
+
+	bookingIDStr := strings.TrimSpace(c.Params("id"))
+	if bookingIDStr == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "booking id is required")
+	}
+
+	var bookingID pgtype.UUID
+	if err := bookingID.Scan(bookingIDStr); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid booking id")
+	}
+
+	booking, err := h.Queries.GetBookingByID(c.Context(), bookingID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "booking not found")
+		}
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch booking")
+	}
+
+	if pgUUIDToStr(booking.StudentID) != pgUUIDToStr(student.ID) {
+		return fiber.NewError(fiber.StatusForbidden, "not allowed to collect this booking")
+	}
+
+	if booking.Status == dbgen.BookingStatusCollected {
+		return c.JSON(fiber.Map{
+			"message": "booking already collected",
+			"booking": booking,
+		})
+	}
+
+	if booking.Status != dbgen.BookingStatusReadyForPickup {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error":          "booking is not ready for pickup",
+			"current_status": booking.Status,
+		})
+	}
+
+	booking, err = h.Queries.SetBookingCollected(c.Context(), dbgen.SetBookingCollectedParams{
+		ID:              booking.ID,
+		LastActorUserID: actorUserID,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to mark booking collected")
+	}
+
+	metadata, _ := json.Marshal(map[string]interface{}{
+		"source": "student_collect",
+	})
+	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+		BagID:             booking.BagID,
+		StudentID:         booking.StudentID,
+		TriggeredByUserID: actorUserID,
+		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleStudent, Valid: true},
+		EventType:         dbgen.WorkflowEventTypeCollected,
+		Metadata:          metadata,
+	})
+
+	return c.JSON(fiber.Map{
+		"message": "booking collected",
+		"booking": booking,
+	})
+}
+
+// GET /api/notifications/my/unread
+func (h *Handler) ListMyUnreadNotifications(c fiber.Ctx) error {
+	userID, err := currentUserIDFromCtx(c)
+	if err != nil {
+		return err
+	}
+
+	limit, offset, err := parsePagination(c)
+	if err != nil {
+		return err
+	}
+
+	notifications, err := h.Queries.ListUnreadNotificationsByUser(c.Context(), dbgen.ListUnreadNotificationsByUserParams{
+		RecipientUserID: userID,
+		Limit:           limit,
+		Offset:          offset,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to list unread notifications")
+	}
+	if notifications == nil {
+		notifications = []dbgen.Notification{}
+	}
+
+	return c.JSON(fiber.Map{"notifications": notifications})
+}
+
+// PATCH /api/notifications/:id/read
+func (h *Handler) MarkMyNotificationRead(c fiber.Ctx) error {
+	userID, err := currentUserIDFromCtx(c)
+	if err != nil {
+		return err
+	}
+
+	notificationIDStr := strings.TrimSpace(c.Params("id"))
+	if notificationIDStr == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "notification id is required")
+	}
+
+	var notificationID pgtype.UUID
+	if err := notificationID.Scan(notificationIDStr); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid notification id")
+	}
+
+	notification, err := h.Queries.MarkNotificationRead(c.Context(), dbgen.MarkNotificationReadParams{
+		ID:              notificationID,
+		RecipientUserID: userID,
+	})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "notification not found")
+		}
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to mark notification as read")
+	}
+
+	return c.JSON(fiber.Map{"notification": notification})
 }

@@ -319,6 +319,14 @@ WHERE recipient_user_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3;
 
+-- name: ListUnreadNotificationsByUser :many
+SELECT *
+FROM notifications
+WHERE recipient_user_id = $1
+  AND is_read = FALSE
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
 -- name: MarkNotificationRead :one
 UPDATE notifications
 SET is_read = TRUE,

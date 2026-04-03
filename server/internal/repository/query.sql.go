@@ -949,6 +949,52 @@ func (q *Queries) ListReadyBookings(ctx context.Context, arg ListReadyBookingsPa
 	return items, nil
 }
 
+const listUnreadNotificationsByUser = `-- name: ListUnreadNotificationsByUser :many
+SELECT id, recipient_user_id, booking_id, title, message, payload, is_read, read_at, sent_at, created_at
+FROM notifications
+WHERE recipient_user_id = $1
+  AND is_read = FALSE
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListUnreadNotificationsByUserParams struct {
+	RecipientUserID pgtype.UUID `json:"recipient_user_id"`
+	Limit           int32       `json:"limit"`
+	Offset          int32       `json:"offset"`
+}
+
+func (q *Queries) ListUnreadNotificationsByUser(ctx context.Context, arg ListUnreadNotificationsByUserParams) ([]Notification, error) {
+	rows, err := q.db.Query(ctx, listUnreadNotificationsByUser, arg.RecipientUserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Notification
+	for rows.Next() {
+		var i Notification
+		if err := rows.Scan(
+			&i.ID,
+			&i.RecipientUserID,
+			&i.BookingID,
+			&i.Title,
+			&i.Message,
+			&i.Payload,
+			&i.IsRead,
+			&i.ReadAt,
+			&i.SentAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markNotificationRead = `-- name: MarkNotificationRead :one
 UPDATE notifications
 SET is_read = TRUE,

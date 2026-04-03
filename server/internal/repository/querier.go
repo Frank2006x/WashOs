@@ -57,6 +57,7 @@ type Querier interface {
 	ListNotificationsByUser(ctx context.Context, arg ListNotificationsByUserParams) ([]Notification, error)
 	ListProcessingBookings(ctx context.Context, arg ListProcessingBookingsParams) ([]Booking, error)
 	ListReadyBookings(ctx context.Context, arg ListReadyBookingsParams) ([]Booking, error)
+	ListUnreadNotificationsByUser(ctx context.Context, arg ListUnreadNotificationsByUserParams) ([]Notification, error)
 	MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) (Notification, error)
 	// Optional alias behavior.
 	RevokeStudentBagQRAliasRotate(ctx context.Context, studentID pgtype.UUID) (Bag, error)
