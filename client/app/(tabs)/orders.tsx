@@ -1,0 +1,14 @@
+import { Text, View } from "react-native";
+
+export default function OrdersTab() {
+  return (
+    <View className="flex-1 bg-background px-6 py-8 dark:bg-background-dark">
+      <Text className="text-3xl font-extrabold text-card-foreground dark:text-card-foreground-dark">
+        Orders
+      </Text>
+      <Text className="mt-3 text-base text-muted-foreground dark:text-muted-foreground-dark">
+        No active orders yet. New wash requests will appear here.
+      </Text>
+    </View>
+  );
+}
