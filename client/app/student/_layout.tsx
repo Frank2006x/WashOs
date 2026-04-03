@@ -58,7 +58,7 @@ export default function StudentTabsLayout() {
       <Tabs.Screen
         name="orders"
         options={{
-          title: t("tabs.orders") as string,
+          title: "Laundry",
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons
               name="local-laundry-service"

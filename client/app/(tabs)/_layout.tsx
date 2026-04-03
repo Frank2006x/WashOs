@@ -36,7 +36,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="orders"
         options={{
-          title: t("tabs.orders") as string,
+          title: "Laundry",
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons
               name="local-laundry-service"
@@ -52,11 +52,7 @@ export default function TabsLayout() {
           href: isStudent ? null : "/(tabs)/scan",
           title: t("tabs.scan") as string,
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons
-              name="qr-code-scanner"
-              color={color}
-              size={size}
-            />
+            <MaterialIcons name="qr-code-scanner" color={color} size={size} />
           ),
         }}
       />

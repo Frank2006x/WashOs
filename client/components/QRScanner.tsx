@@ -22,6 +22,8 @@ export interface QRScannerProps {
   title: string;
   /** Callback fired with parsed data (or raw string if not JSON) after a scan */
   onScan?: (data: any) => void;
+  /** When false, hides raw/parsed payload details and only shows scan status. */
+  showScanDetails?: boolean;
   /**
    * When true (default), scanning is disabled after the first successful scan
    * until the user taps "Scan Again".
@@ -36,6 +38,7 @@ type ScanState = "loading" | "denied" | "scanning" | "success" | "error";
 const QRScanner: React.FC<QRScannerProps> = ({
   title,
   onScan,
+  showScanDetails = true,
   singleScan = true,
 }) => {
   const [permission, requestPermission] = useCameraPermissions();
@@ -212,26 +215,39 @@ const QRScanner: React.FC<QRScannerProps> = ({
             </Text>
           </View>
 
-          {/* Raw value */}
-          <View style={styles.card}>
-            <Text style={styles.cardLabel}>Raw Value</Text>
-            <Text style={styles.cardRaw} selectable>
-              {rawValue}
-            </Text>
-          </View>
+          {showScanDetails ? (
+            <>
+              {/* Raw value */}
+              <View style={styles.card}>
+                <Text style={styles.cardLabel}>Raw Value</Text>
+                <Text style={styles.cardRaw} selectable>
+                  {rawValue}
+                </Text>
+              </View>
 
-          {/* Parsed data (only when valid JSON) */}
-          {!parseError && scannedData !== null && (
+              {/* Parsed data (only when valid JSON) */}
+              {!parseError && scannedData !== null && (
+                <View style={styles.card}>
+                  <Text style={styles.cardLabel}>Parsed JSON</Text>
+                  {renderParsedData(scannedData)}
+                </View>
+              )}
+
+              {parseError && (
+                <View style={[styles.card, styles.cardError]}>
+                  <Text style={styles.cardErrorText}>
+                    The scanned QR code does not contain valid JSON data.
+                  </Text>
+                </View>
+              )}
+            </>
+          ) : (
             <View style={styles.card}>
-              <Text style={styles.cardLabel}>Parsed JSON</Text>
-              {renderParsedData(scannedData)}
-            </View>
-          )}
-
-          {parseError && (
-            <View style={[styles.card, styles.cardError]}>
-              <Text style={styles.cardErrorText}>
-                The scanned QR code does not contain valid JSON data.
+              <Text style={styles.cardLabel}>Status</Text>
+              <Text style={styles.valuePrimitive}>
+                {parseError
+                  ? "Scan read failed. Please scan the correct bag QR again."
+                  : "Scan captured. Processing completed."}
               </Text>
             </View>
           )}

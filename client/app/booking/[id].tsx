@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  ScrollView,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { staffService, studentService } from "@/services/api";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 function statusLabel(status?: string): string {
   if (!status) return "Unknown";
@@ -16,9 +23,36 @@ function timeLabel(value?: string): string {
   return dt.toLocaleString();
 }
 
+function getMachineLabel(evt: Record<string, any>): string {
+  const payload = evt?.metadata;
+  let metadata: Record<string, any> = {};
+
+  if (payload && typeof payload === "object") {
+    metadata = payload;
+  } else if (typeof payload === "string") {
+    try {
+      const parsed = JSON.parse(payload);
+      if (parsed && typeof parsed === "object") {
+        metadata = parsed;
+      }
+    } catch {
+      metadata = {};
+    }
+  }
+
+  const machineCode = metadata?.machine_code;
+  if (typeof machineCode === "string" && machineCode.trim().length > 0) {
+    return machineCode.trim();
+  }
+
+  return "";
+}
+
 export default function BookingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
+  const isCompact = width < 360;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [booking, setBooking] = useState<Record<string, any> | null>(null);
@@ -67,72 +101,111 @@ export default function BookingDetailScreen() {
 
   if (error) {
     return (
-      <View className="flex-1 bg-background px-6 py-8 dark:bg-background-dark">
+      <SafeAreaView
+        className="flex-1 bg-background px-6 py-8 dark:bg-background-dark"
+        edges={["top"]}
+      >
         <Text className="text-lg font-bold text-destructive dark:text-destructive-dark">
           {error}
         </Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView className="flex-1 bg-background px-6 py-8 dark:bg-background-dark">
-      <Text className="text-3xl font-extrabold text-card-foreground dark:text-card-foreground-dark">
-        Booking Details
-      </Text>
-
-      <View className="mt-6 rounded-2xl bg-card p-5 dark:bg-card-dark">
-        <Text className="text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
-          Current Status
-        </Text>
-        <Text className="mt-2 text-2xl font-extrabold text-card-foreground dark:text-card-foreground-dark">
-          {statusLabel(String(booking?.status || ""))}
-        </Text>
-        <Text className="mt-2 text-sm text-muted-foreground dark:text-muted-foreground-dark">
-          ID: #{String(booking?.id || "").slice(0, 8)}
-        </Text>
-        {booking?.row_no ? (
-          <Text className="mt-2 text-sm font-semibold text-card-foreground dark:text-card-foreground-dark">
-            Pickup Row: {String(booking.row_no)}
+    <SafeAreaView
+      className="flex-1 bg-background dark:bg-background-dark"
+      edges={["top"]}
+    >
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName={
+          isCompact ? "px-4 py-4 pb-16" : "px-6 py-6 pb-20"
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        <View
+          className={`rounded-3xl bg-card dark:bg-card-dark ${isCompact ? "p-5" : "p-6"}`}
+        >
+          <Text
+            className={`${isCompact ? "text-2xl" : "text-3xl"} font-extrabold text-card-foreground dark:text-card-foreground-dark`}
+          >
+            Booking Details
           </Text>
-        ) : null}
-      </View>
+          <Text
+            className={`mt-2 ${isCompact ? "text-xs leading-5" : "text-sm leading-6"} text-muted-foreground dark:text-muted-foreground-dark`}
+          >
+            Full status and timeline for this booking.
+          </Text>
+        </View>
 
-      <View className="mt-6 rounded-2xl bg-card p-5 dark:bg-card-dark">
-        <Text className="text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
-          Timeline
-        </Text>
-        <View className="mt-3 gap-3">
-          {events.length === 0 ? (
-            <Text className="text-sm text-muted-foreground dark:text-muted-foreground-dark">
-              No events recorded yet.
+        <View
+          className={`mt-6 rounded-3xl bg-card dark:bg-card-dark ${isCompact ? "p-4" : "p-5"}`}
+        >
+          <Text className="text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
+            Current Status
+          </Text>
+          <Text className="mt-2 text-2xl font-extrabold text-card-foreground dark:text-card-foreground-dark">
+            {statusLabel(String(booking?.status || ""))}
+          </Text>
+          <Text className="mt-2 text-sm text-muted-foreground dark:text-muted-foreground-dark">
+            ID: #{String(booking?.id || "").slice(0, 8)}
+          </Text>
+          {booking?.row_no ? (
+            <Text className="mt-2 text-sm font-semibold text-card-foreground dark:text-card-foreground-dark">
+              Pickup Row: {String(booking.row_no)}
             </Text>
-          ) : (
-            events.map((evt) => (
-              <View
-                key={String(evt.id)}
-                className="rounded-xl border border-border px-4 py-3 dark:border-border-dark"
-              >
-                <Text className="text-sm font-bold text-card-foreground dark:text-card-foreground-dark">
-                  {statusLabel(String(evt.event_type || ""))}
-                </Text>
-                <Text className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground-dark">
-                  {timeLabel(String(evt.created_at || ""))}
-                </Text>
-              </View>
-            ))
-          )}
+          ) : null}
         </View>
-      </View>
 
-      {isStaff ? (
-        <View className="mt-6 rounded-2xl bg-card p-5 dark:bg-card-dark">
-          <Text className="text-sm text-muted-foreground dark:text-muted-foreground-dark">
-            Staff phase transitions are scan-only. Use the Scan Center for
-            intake, wash, dry, and ready steps.
+        <View
+          className={`mt-6 rounded-3xl bg-card dark:bg-card-dark ${isCompact ? "p-4" : "p-5"}`}
+        >
+          <Text className="text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
+            Timeline
           </Text>
+          <View className="mt-3 gap-3">
+            {events.length === 0 ? (
+              <Text className="text-sm text-muted-foreground dark:text-muted-foreground-dark">
+                No events recorded yet.
+              </Text>
+            ) : (
+              events.map((evt) => {
+                const machineLabel = getMachineLabel(evt);
+                return (
+                  <View
+                    key={String(evt.id)}
+                    className={`rounded-2xl border border-border bg-background dark:border-border-dark dark:bg-background-dark ${isCompact ? "px-3 py-2.5" : "px-4 py-3"}`}
+                  >
+                    <Text className="text-sm font-bold text-card-foreground dark:text-card-foreground-dark">
+                      {statusLabel(String(evt.event_type || ""))}
+                    </Text>
+                    {machineLabel ? (
+                      <Text className="mt-1 text-xs font-semibold text-card-foreground dark:text-card-foreground-dark">
+                        Machine: {machineLabel}
+                      </Text>
+                    ) : null}
+                    <Text className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground-dark">
+                      {timeLabel(String(evt.created_at || ""))}
+                    </Text>
+                  </View>
+                );
+              })
+            )}
+          </View>
         </View>
-      ) : null}
-    </ScrollView>
+
+        {isStaff ? (
+          <View
+            className={`mt-6 rounded-3xl bg-card dark:bg-card-dark ${isCompact ? "p-4" : "p-5"}`}
+          >
+            <Text className="text-sm text-muted-foreground dark:text-muted-foreground-dark">
+              Staff phase transitions are scan-only. Use the Scan Center for
+              intake, wash, dry, and ready steps.
+            </Text>
+          </View>
+        ) : null}
+      </ScrollView>
+    </SafeAreaView>
   );
 }

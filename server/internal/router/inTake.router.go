@@ -20,7 +20,8 @@ func SetupPhase2Routes(app *fiber.App, h *handler.Handler) {
 	scanGroup.Post("/intake", h.IntakeScan)
 	scanGroup.Post("/wash-start", h.WashStartScan)
 	scanGroup.Post("/wash-finish", h.WashFinishScan)
-	scanGroup.Post("/wash-complete", h.WashCompleteScan)
+	// Keep legacy path but enforce machine-validated finish flow.
+	scanGroup.Post("/wash-complete", h.WashFinishScan)
 	scanGroup.Post("/dry-start", h.DryStartScan)
 	scanGroup.Post("/dry-finish", h.DryFinishScan)
 	scanGroup.Post("/ready", h.ReadyScan)
