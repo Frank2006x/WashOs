@@ -1,0 +1,95 @@
+{
+  "tabs": {
+    "home": "होम",
+    "orders": "ऑर्डर्स",
+    "scan": "स्कैन",
+    "profile": "प्रोफ़ाइल"
+  },
+  "common": {
+    "loading": "लोड हो रहा है...",
+    "save": "सेव करें",
+    "saved": "सेव हो गया",
+    "cancel": "रद्द करें",
+    "edit": "संपादित करें",
+    "error": "त्रुटि",
+    "rotate": "घुमाएं",
+    "validation": "चेतावनी",
+    "success": "सफलता"
+  },
+  "login": {
+    "welcome": "वापसी पर स्वागत है",
+    "subtitle": "आपकी लांड्री, अब और भी आसान।",
+    "email_placeholder": "अपना ईमेल दर्ज करें",
+    "password_placeholder": "पासवर्ड दर्ज करें",
+    "login_button": "लॉग इन",
+    "no_account": "क्या खाता नहीं है?",
+    "signup": "खाता बनाएं",
+    "signin_tab": "लॉग इन",
+    "signup_tab": "साइन अप",
+    "role_student": "छात्र",
+    "role_staff": "लांड्री स्टाफ",
+    "name_label": "नाम",
+    "name_placeholder": "आपका पूरा नाम",
+    "regno_label": "पंजीकरण संख्या",
+    "email": "ईमेल",
+    "phone": "फ़ोन",
+    "password_label": "पासवर्ड",
+    "app_name": "Wash Os",
+    "alert_validation": "सत्यापन",
+    "alert_required": "{{identifier}} और पासवर्ड आवश्यक हैं",
+    "footer_info": "यह सेशन JWT द्वारा सुरक्षित है, और 30 दिनों में अपने आप समाप्त हो जाएगा।",
+    "err_required_both": "{{identifier}} और पासवर्ड आवश्यक हैं",
+    "err_required_name": "नाम आवश्यक है",
+    "err_required_regno": "छात्र पंजीकरण के लिए पंजीकरण संख्या आवश्यक है",
+    "success_signup": "खाता बन गया। कृपया लॉग इन करें।",
+    "err_auth_failed": "लॉग-इन विफल हुआ",
+    "err_try_again": "कृपया पुनः प्रयास करें"
+  },
+  "profile": {
+    "logout": "लॉग आउट",
+    "account_info": "आपके खाते की जानकारी",
+    "email": "ईमेल",
+    "phone": "फ़ोन",
+    "reg_no": "पंजीकरण संख्या",
+    "member_since": "सदस्यता शुरुआत",
+    "hostel_block": "हॉस्टल ब्लॉक",
+    "set_block_desc": "सही डिलीवरी के लिए अपना ब्लॉक सेट करें।",
+    "current_block": "आपका वर्तमान ब्लॉक",
+    "save_block": "ब्लॉक सेव करें",
+    "qr_card_title": "लांड्री बैग QR",
+    "qr_card_desc": "कपड़े देते समय इस QR कोड को स्टाफ को दिखाएं।",
+    "tap_to_view": "पूरी स्क्रीन देखने के लिए टैप करें",
+    "view_qr": "मेरा लांड्री QR",
+    "generate_qr": "QR बनाएं",
+    "no_bag_title": "अभी तक कोई QR नहीं है",
+    "no_bag_desc": "अपने लांड्री बैग के लिए एक विशेष QR बनाएं।\nकपड़े लेते समय स्टाफ इसे स्कैन करेगा।",
+    "generate_qr_button": "मेरा QR बनाएं",
+    "language": "भाषा",
+    "select_language": "भाषा चुनें",
+    "app_version": "WashOs v1.0.0",
+    "block_req": "ब्लॉक आवश्यक है",
+    "err_select_block": "कृपया अपना हॉस्टल ब्लॉक चुनें।",
+    "block_set_to": "ब्लॉक चुना गया",
+    "err_save_block": "ब्लॉक सेव करने में विफल",
+    "rotate_qr": "QR घुमाएं",
+    "rotate_qr_desc": "यह आपके वर्तमान QR को रद्द करके एक नया QR कोड बना देगा। क्या आप जारी रखना चाहते हैं?",
+    "err_rotate": "घुमाने में विफल",
+    "err_gen_qr": "QR जनरेट करने में विफल"
+  },
+  "orders": {
+    "title": "आपके ऑर्डर्स",
+    "no_orders": "अभी तक कोई सक्रिय ऑर्डर्स नहीं है।"
+  },
+  "home": {
+    "welcome": "Wash Os में आपका स्वागत है",
+    "description": "तेज़ ऑर्डर्स, ट्रैकिंग और शेड्यूल्स - सब कुछ एक ही जगह।",
+    "greeting": "नमस्ते,"
+  },
+  "scan": {
+    "title": "WashOs स्कैनर"
+  },
+  "qr_modal": {
+    "version": "संस्करण",
+    "help_text": "अपना लांड्री बैग देते समय यह QR दिखाएं।\nअगर आपको लगता है कि आपका QR किसी और के पास है, तो इसे बदलें।"
+  }
+}

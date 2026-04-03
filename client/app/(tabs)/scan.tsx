@@ -1,6 +1,8 @@
 import React from 'react';
 import QRScanner from '../../components/QRScanner';
+import { useTranslation } from "react-i18next";
 
 export default function ScanScreen() {
-  return <QRScanner title="WashOs Scanner" />;
+  const { t } = useTranslation();
+  return <QRScanner title={t("scan.title", "WashOs Scanner") as string} />;
 }

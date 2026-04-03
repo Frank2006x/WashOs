@@ -4,10 +4,12 @@ import { useColorScheme } from "nativewind";
 import { Pressable, Share, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import QRCode from "react-native-qrcode-svg";
+import { useTranslation } from "react-i18next";
 
 export default function QRModal() {
   const { colorScheme } = useColorScheme();
   const router = useRouter();
+  const { t } = useTranslation();
   const { payload, reg_no, name, block, version } = useLocalSearchParams<{
     payload: string;
     reg_no: string;
@@ -21,7 +23,7 @@ export default function QRModal() {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `WashOs Laundry Bag QR\n${name} · ${reg_no}${block ? ` · Block ${block}` : ""} · v${version}`,
+        message: `${t("profile.qr_card_title", "WashOs Laundry Bag QR")}\n${name} · ${reg_no}${block ? ` · ${t("profile.hostel_block", "Block")} ${block}` : ""} · v${version}`,
       });
     } catch (_) {}
   };
@@ -42,7 +44,7 @@ export default function QRModal() {
           />
         </Pressable>
         <Text className="text-xl font-extrabold tracking-tight text-card-foreground dark:text-card-foreground-dark">
-          My Laundry QR
+          {t("profile.view_qr", "My Laundry QR")}
         </Text>
         <Pressable onPress={handleShare} className="ml-auto" hitSlop={8}>
           <MaterialIcons
@@ -66,7 +68,7 @@ export default function QRModal() {
             />
           ) : (
             <View className="h-64 w-64 items-center justify-center rounded-2xl bg-gray-100">
-              <Text className="text-muted-foreground">No QR data</Text>
+              <Text className="text-muted-foreground">{t("common.error", "No QR data")}</Text>
             </View>
           )}
 
@@ -75,19 +77,18 @@ export default function QRModal() {
             <Text className="text-lg font-extrabold text-gray-900">{name}</Text>
             <Text className="text-sm font-bold text-gray-500">{reg_no}</Text>
             {block ? (
-              <Text className="text-sm text-gray-500">Block {block}</Text>
+              <Text className="text-sm text-gray-500">{t("profile.hostel_block", "Block")} {block}</Text>
             ) : null}
             <View className="mt-2 rounded-full bg-primary-dark/10 px-3 py-1">
               <Text className="text-xs font-bold tracking-wider text-primary-dark">
-                VERSION {version}
+                {t("qr_modal.version", "VERSION").toUpperCase()} {version}
               </Text>
             </View>
           </View>
         </View>
 
         <Text className="mt-6 text-center text-xs text-muted-foreground dark:text-muted-foreground-dark">
-          Show this QR when dropping off your laundry bag.{"\n"}
-          Rotate if you think your QR has been compromised.
+          {t("qr_modal.help_text", "Show this QR when dropping off your laundry bag.\nRotate if you think your QR has been compromised.")}
         </Text>
       </View>
     </SafeAreaView>

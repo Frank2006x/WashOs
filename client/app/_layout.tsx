@@ -2,6 +2,7 @@ import { Slot, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
 import "../global.css";
+import "../i18n";
 
 function RootLayoutNav() {
   const { isAuthenticated, loading } = useAuth();

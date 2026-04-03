@@ -14,6 +14,7 @@ import QRCode from "react-native-qrcode-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { BagResponse, studentService } from "@/services/api";
+import { useTranslation } from "react-i18next";
 
 const BLOCKS = ["A", "B", "C", "D1", "D2", "E"] as const;
 type Block = (typeof BLOCKS)[number];
@@ -23,6 +24,14 @@ export default function ProfileTab() {
   const { user, profile, logout, loading } = useAuth();
   const router = useRouter();
   const isDark = colorScheme === "dark";
+  const { t, i18n } = useTranslation();
+
+  const LANGUAGES = [
+    { code: "en", label: "English" },
+    { code: "ta", label: "தமிழ்" },
+    { code: "te", label: "తెలుగు" },
+    { code: "hi", label: "हिंदी" },
+  ];
 
   // ── QR / bag state ────────────────────────────────────────────────────────
   const [bag, setBag] = useState<BagResponse | null>(null);
@@ -67,7 +76,7 @@ export default function ProfileTab() {
       const created = await studentService.initMyBag();
       setBag(created);
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data || e?.message || "Failed to generate QR");
+      Alert.alert(t("common.error", "Error"), e?.response?.data || e?.message || t("profile.err_gen_qr", "Failed to generate QR"));
     } finally {
       setGenerating(false);
     }
@@ -75,7 +84,7 @@ export default function ProfileTab() {
 
   const handleSaveBlock = async () => {
     if (!selectedBlock) {
-      Alert.alert("Block required", "Please select your hostel block.");
+      Alert.alert(t("profile.block_req", "Block required"), t("profile.err_select_block", "Please select your hostel block."));
       return;
     }
     setSavingBlock(true);
@@ -84,9 +93,9 @@ export default function ProfileTab() {
       // Re-fetch to sync QR payload (block is embedded in it)
       await fetchBag();
       setIsEditingBlock(false);
-      Alert.alert("Saved", `Block set to ${selectedBlock}`);
+      Alert.alert(t("common.saved", "Saved"), `${t("profile.block_set_to", "Block set to")} ${selectedBlock}`);
     } catch (e: any) {
-      Alert.alert("Error", e?.response?.data || e?.message || "Failed to save block");
+      Alert.alert(t("common.error", "Error"), e?.response?.data || e?.message || t("profile.err_save_block", "Failed to save block"));
     } finally {
       setSavingBlock(false);
     }
@@ -94,12 +103,12 @@ export default function ProfileTab() {
 
   const handleRotateQR = () => {
     Alert.alert(
-      "Rotate QR Code",
-      "This will invalidate your current QR code and generate a new one. Continue?",
+      t("profile.rotate_qr", "Rotate QR Code"),
+      t("profile.rotate_qr_desc", "This will invalidate your current QR code and generate a new one. Continue?"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("common.cancel", "Cancel"), style: "cancel" },
         {
-          text: "Rotate",
+          text: t("common.rotate", "Rotate"),
           style: "destructive",
           onPress: async () => {
             setRotating(true);
@@ -107,8 +116,8 @@ export default function ProfileTab() {
               const updated = await studentService.rotateMyQR();
               setBag(updated);
             } catch (e: any) {
-              const msg = e?.response?.data || e?.message || "Failed to rotate";
-              Alert.alert("Error", msg);
+              const msg = e?.response?.data || e?.message || t("profile.err_rotate", "Failed to rotate");
+              Alert.alert(t("common.error", "Error"), msg);
             } finally {
               setRotating(false);
             }
@@ -166,10 +175,10 @@ export default function ProfileTab() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View className="px-6 py-6">
           <Text className="text-3xl font-extrabold text-card-foreground dark:text-card-foreground-dark">
-            Profile
+            {t("tabs.profile", "Profile")}
           </Text>
           <Text className="mt-1 text-sm text-muted-foreground dark:text-muted-foreground-dark">
-            Your account information
+            {t("profile.account_info", "Your account information")}
           </Text>
 
           {/* ── Profile Card ── */}
@@ -192,10 +201,10 @@ export default function ProfileTab() {
               </View>
             </View>
 
-            <InfoRow label="Email" value={user?.email ?? ""} />
-            {profilePhone && <InfoRow label="Phone" value={profilePhone} />}
-            {profileRegNo && <InfoRow label="Reg No" value={profileRegNo} />}
-            <InfoRow label="Member Since" value={user?.created_at ? new Date(user.created_at).toLocaleDateString() : "N/A"} />
+            <InfoRow label={t("profile.email", "Email") as string} value={user?.email ?? ""} />
+            {profilePhone && <InfoRow label={t("profile.phone", "Phone") as string} value={profilePhone} />}
+            {profileRegNo && <InfoRow label={t("profile.reg_no", "Reg No") as string} value={profileRegNo} />}
+            <InfoRow label={t("profile.member_since", "Member Since") as string} value={user?.created_at ? new Date(user.created_at).toLocaleDateString() : "N/A"} />
           </View>
 
           {/* ── Block Picker (students only) ── */}
@@ -203,7 +212,7 @@ export default function ProfileTab() {
             <View className="mt-5 rounded-2xl bg-card p-5 dark:bg-card-dark">
               <View className="mb-4 flex-row items-center justify-between">
                 <Text className="text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
-                  Hostel Block
+                  {t("profile.hostel_block", "Hostel Block")}
                 </Text>
                 {bag?.block && !isEditingBlock && (
                   <Pressable
@@ -217,7 +226,7 @@ export default function ProfileTab() {
                       color={isDark ? "#b7b5a9" : "#83827d"}
                     />
                     <Text className="text-xs font-bold text-muted-foreground dark:text-muted-foreground-dark">
-                      Edit
+                      {t("common.edit", "Edit")}
                     </Text>
                   </Pressable>
                 )}
@@ -230,10 +239,10 @@ export default function ProfileTab() {
                   </View>
                   <View>
                     <Text className="text-sm font-medium text-muted-foreground dark:text-muted-foreground-dark">
-                      Your current block
+                      {t("profile.current_block", "Your current block")}
                     </Text>
                     <Text className="text-xl font-extrabold text-card-foreground dark:text-card-foreground-dark">
-                      Block {bag.block}
+                      {t("profile.hostel_block", "Block")} {bag.block}
                     </Text>
                   </View>
                 </View>
@@ -281,7 +290,7 @@ export default function ProfileTab() {
                         className="flex-1 items-center rounded-full bg-secondary py-3 active:opacity-85 dark:bg-secondary-dark disabled:opacity-50"
                       >
                         <Text className="font-bold text-secondary-foreground dark:text-secondary-foreground-dark">
-                          Cancel
+                          {t("common.cancel", "Cancel")}
                         </Text>
                       </Pressable>
                     )}
@@ -294,7 +303,7 @@ export default function ProfileTab() {
                         <ActivityIndicator color={isDark ? "#1a1f37" : "#f9f5ee"} size="small" />
                       ) : (
                         <Text className="font-bold text-primary-foreground-dark dark:text-primary-foreground">
-                          Save Block
+                          {t("profile.save_block", "Save Block")}
                         </Text>
                       )}
                     </Pressable>
@@ -310,11 +319,11 @@ export default function ProfileTab() {
               <View className="mb-4 flex-row items-center justify-between">
                 <View>
                   <Text className="text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
-                    Laundry Bag QR
+                    {t("profile.qr_card_title", "Laundry Bag QR")}
                   </Text>
                   {bag && (
                     <Text className="mt-0.5 text-xs text-muted-foreground dark:text-muted-foreground-dark">
-                      Version {bag.qr_version}
+                      {t("qr_modal.version", "Version")} {bag.qr_version}
                       {bag.is_revoked && "  ⚠ Revoked"}
                     </Text>
                   )}
@@ -336,7 +345,7 @@ export default function ProfileTab() {
                           color={isDark ? "#b7b5a9" : "#83827d"}
                         />
                         <Text className="text-xs font-bold text-muted-foreground dark:text-muted-foreground-dark">
-                          Rotate
+                          {t("common.rotate", "Rotate")}
                         </Text>
                       </>
                     )}
@@ -361,7 +370,7 @@ export default function ProfileTab() {
                   </View>
                   <View className="mt-3 flex-row items-center gap-1">
                     <Text className="text-xs font-medium text-muted-foreground dark:text-muted-foreground-dark">
-                      Tap to view full screen
+                      {t("profile.tap_to_view", "Tap to view full screen")}
                     </Text>
                     <MaterialIcons
                       name="open-in-full"
@@ -377,7 +386,7 @@ export default function ProfileTab() {
                       <>
                         <Text className="text-xs text-muted-foreground">·</Text>
                         <Text className="text-xs text-muted-foreground dark:text-muted-foreground-dark">
-                          Block {bag.block}
+                          {t("profile.hostel_block", "Block")} {bag.block}
                         </Text>
                       </>
                     )}
@@ -391,11 +400,10 @@ export default function ProfileTab() {
                     color={isDark ? "#b7b5a9" : "#c5c3bc"}
                   />
                   <Text className="text-sm font-medium text-muted-foreground dark:text-muted-foreground-dark">
-                    No QR code yet
+                    {t("profile.no_bag_title", "No QR code yet")}
                   </Text>
                   <Text className="text-xs text-center text-muted-foreground dark:text-muted-foreground-dark px-4">
-                    Generate a unique QR for your laundry bag.{"\n"}
-                    Laundry staff will scan this when collecting your clothes.
+                    {t("profile.no_bag_desc", "Generate a unique QR for your laundry bag.\nLaundry staff will scan this when collecting your clothes.")}
                   </Text>
                   <Pressable
                     onPress={handleGenerateQR}
@@ -408,7 +416,7 @@ export default function ProfileTab() {
                       <>
                         <MaterialIcons name="qr-code-2" size={18} color={isDark ? "#1a1f37" : "#f9f5ee"} />
                         <Text className="font-bold text-primary-foreground-dark dark:text-primary-foreground">
-                          Generate My QR
+                          {t("profile.generate_qr", "Generate My QR")}
                         </Text>
                       </>
                     )}
@@ -418,6 +426,39 @@ export default function ProfileTab() {
             </View>
           )}
 
+          {/* ── Language Switcher ── */}
+          <View className="mt-5 rounded-2xl bg-card p-5 dark:bg-card-dark">
+            <Text className="mb-4 text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
+              {t("profile.language", "Language")}
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {LANGUAGES.map((lang) => {
+                const active = i18n.language === lang.code;
+                return (
+                  <Pressable
+                    key={lang.code}
+                    onPress={() => i18n.changeLanguage(lang.code)}
+                    className={`rounded-full border-2 px-4 py-2 ${
+                      active
+                        ? "border-primary-dark bg-primary-dark/10 dark:border-primary dark:bg-primary/10"
+                        : "border-border bg-background dark:border-border-dark dark:bg-background-dark"
+                    }`}
+                  >
+                    <Text
+                      className={`text-sm font-bold ${
+                        active
+                          ? "text-primary-dark dark:text-primary"
+                          : "text-muted-foreground dark:text-muted-foreground-dark"
+                      }`}
+                    >
+                      {lang.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
           {/* ── Logout ── */}
           <Pressable
             onPress={handleLogout}
@@ -426,14 +467,14 @@ export default function ProfileTab() {
             <View className="flex-row items-center gap-2">
               <MaterialIcons name="logout" size={20} color="#f9f5ee" />
               <Text className="font-bold text-destructive-foreground dark:text-destructive-foreground-dark">
-                Log Out
+                {t("profile.logout", "Log Out")}
               </Text>
             </View>
           </Pressable>
 
           <View className="mt-5 mb-4 rounded-xl bg-card/50 p-4 dark:bg-card-dark/50">
             <Text className="text-center text-xs text-muted-foreground dark:text-muted-foreground-dark">
-              WashOs v1.0.0
+              {t("profile.app_version", "WashOs v1.0.0")}
             </Text>
           </View>
         </View>

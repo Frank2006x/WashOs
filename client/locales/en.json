@@ -1,0 +1,95 @@
+{
+  "tabs": {
+    "home": "Home",
+    "orders": "Orders",
+    "scan": "Scan",
+    "profile": "Profile"
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "saved": "Saved",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "error": "Error",
+    "rotate": "Rotate",
+    "validation": "Validation",
+    "success": "Success"
+  },
+  "login": {
+    "welcome": "Welcome back",
+    "subtitle": "Your Laundry, Simplified.",
+    "email_placeholder": "Enter your email",
+    "password_placeholder": "Enter password",
+    "login_button": "Log In",
+    "no_account": "Don't have an account?",
+    "signup": "Sign Up",
+    "signin_tab": "Sign In",
+    "signup_tab": "Sign Up",
+    "role_student": "Student",
+    "role_staff": "Laundry Staff",
+    "name_label": "Name",
+    "name_placeholder": "Your full name",
+    "regno_label": "Reg No",
+    "email": "Email",
+    "phone": "Phone",
+    "password_label": "Password",
+    "app_name": "Wash Os",
+    "alert_validation": "Validation",
+    "alert_required": "{{identifier}} and password are required",
+    "footer_info": "Session is managed with JWT validation and auto-timeout at 30 days.",
+    "err_required_both": "{{identifier}} and password are required",
+    "err_required_name": "Name is required",
+    "err_required_regno": "Reg No is required for student signup",
+    "success_signup": "Account created. Please sign in.",
+    "err_auth_failed": "Auth Failed",
+    "err_try_again": "Please try again"
+  },
+  "profile": {
+    "logout": "Log Out",
+    "account_info": "Your account information",
+    "email": "Email",
+    "phone": "Phone",
+    "reg_no": "Reg No",
+    "member_since": "Member Since",
+    "hostel_block": "Hostel Block",
+    "set_block_desc": "Set your block so laundry can be delivered correctly.",
+    "current_block": "Your current block",
+    "save_block": "Save Block",
+    "qr_card_title": "Laundry Bag QR",
+    "qr_card_desc": "Present this unique QR code when dropping off laundry.",
+    "tap_to_view": "Tap to view full screen",
+    "view_qr": "My Laundry QR",
+    "generate_qr": "Generate QR",
+    "no_bag_title": "No QR code yet",
+    "no_bag_desc": "Generate a unique QR for your laundry bag.\nLaundry staff will scan this when collecting your clothes.",
+    "generate_qr_button": "Generate My QR Code",
+    "language": "Language",
+    "select_language": "Select Language",
+    "app_version": "WashOs v1.0.0",
+    "block_req": "Block required",
+    "err_select_block": "Please select your hostel block.",
+    "block_set_to": "Block set to",
+    "err_save_block": "Failed to save block",
+    "rotate_qr": "Rotate QR Code",
+    "rotate_qr_desc": "This will invalidate your current QR code and generate a new one. Continue?",
+    "err_rotate": "Failed to rotate",
+    "err_gen_qr": "Failed to generate QR"
+  },
+  "orders": {
+    "title": "Your Orders",
+    "no_orders": "No orders yet."
+  },
+  "home": {
+    "welcome": "Welcome to Wash Os",
+    "description": "Quick actions, order tracking, and schedules all in one place.",
+    "greeting": "Hello,"
+  },
+  "scan": {
+    "title": "WashOs Scanner"
+  },
+  "qr_modal": {
+    "version": "VERSION",
+    "help_text": "Show this QR when dropping off your laundry bag.\nRotate if you think your QR has been compromised."
+  }
+}
