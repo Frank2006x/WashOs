@@ -31,6 +31,7 @@ type Querier interface {
 	GetBookingWorkflowEvents(ctx context.Context, bookingID pgtype.UUID) ([]WorkflowEvent, error)
 	GetFirstLaundryService(ctx context.Context) (LaundryService, error)
 	GetLatestActiveBookingByBagID(ctx context.Context, bagID pgtype.UUID) (Booking, error)
+	GetLatestActiveBookingByStudentID(ctx context.Context, studentID pgtype.UUID) (Booking, error)
 	GetLaundryStaffByUserID(ctx context.Context, userID pgtype.UUID) (LaundryStaff, error)
 	// Staff signs in by phone.
 	GetLaundryStaffUserByPhone(ctx context.Context, phone string) (User, error)
@@ -38,6 +39,7 @@ type Querier interface {
 	GetRunningMachineRunByMachineID(ctx context.Context, machineID pgtype.UUID) (MachineRun, error)
 	GetStudentBagByStudentID(ctx context.Context, studentID pgtype.UUID) (Bag, error)
 	GetStudentBookings(ctx context.Context, arg GetStudentBookingsParams) ([]Booking, error)
+	GetStudentByID(ctx context.Context, id pgtype.UUID) (Student, error)
 	GetStudentByUserID(ctx context.Context, userID pgtype.UUID) (Student, error)
 	// =========================
 	// Auth and Profile Queries
@@ -53,6 +55,9 @@ type Querier interface {
 	// =========================
 	ListMachinesByType(ctx context.Context, machineType MachineType) ([]Machine, error)
 	ListNotificationsByUser(ctx context.Context, arg ListNotificationsByUserParams) ([]Notification, error)
+	ListProcessingBookings(ctx context.Context, arg ListProcessingBookingsParams) ([]Booking, error)
+	ListReadyBookings(ctx context.Context, arg ListReadyBookingsParams) ([]Booking, error)
+	ListUnreadNotificationsByUser(ctx context.Context, arg ListUnreadNotificationsByUserParams) ([]Notification, error)
 	MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) (Notification, error)
 	// Optional alias behavior.
 	RevokeStudentBagQRAliasRotate(ctx context.Context, studentID pgtype.UUID) (Bag, error)

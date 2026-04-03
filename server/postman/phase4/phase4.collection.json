@@ -1,0 +1,430 @@
+{
+  "info": {
+    "_postman_id": "7c9a0ea3-9f2a-4bfd-902a-fdb89a0e55c7",
+    "name": "WashOs Phase 4 - Pickup Verification + Notifications",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health - Ping",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/ping",
+          "host": ["{{baseUrl}}"],
+          "path": ["ping"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ping returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Student Signup",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const seed = Date.now().toString();",
+              "pm.collectionVariables.set('student_name', 'Student ' + seed.slice(-4));",
+              "pm.collectionVariables.set('student_reg_no', '24BCE' + seed.slice(-6));",
+              "pm.collectionVariables.set('student_email', 'student.' + seed + '@vitstudent.ac.in');",
+              "if (!pm.collectionVariables.get('student_password')) {",
+              "  pm.collectionVariables.set('student_password', '123456');",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"{{student_name}}\",\n  \"reg_no\": \"{{student_reg_no}}\",\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/student/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "student", "signup"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Student signup returns 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Student Signin",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/student/signin",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "student", "signin"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Student signin returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('student_access_token', json.access_token);",
+              "pm.collectionVariables.set('student_refresh_token', json.refresh_token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student - Init Bag",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{student_access_token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/student/me/bag/init",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "student", "me", "bag", "init"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Init bag returns 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('qr_payload', json.qr_payload);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Staff Signup",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const seed = Date.now().toString();",
+              "pm.collectionVariables.set('staff_name', 'Staff ' + seed.slice(-4));",
+              "pm.collectionVariables.set('staff_phone', '+9199' + seed.slice(-8));",
+              "pm.collectionVariables.set('staff_email', 'staff.' + seed + '@washos.local');",
+              "if (!pm.collectionVariables.get('staff_password')) {",
+              "  pm.collectionVariables.set('staff_password', '123456');",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"{{staff_name}}\",\n  \"phone\": \"{{staff_phone}}\",\n  \"email\": \"{{staff_email}}\",\n  \"password\": \"{{staff_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/staff/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "staff", "signup"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Staff signup returns 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Staff Signin",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"{{staff_phone}}\",\n  \"password\": \"{{staff_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/staff/signin",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "staff", "signin"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Staff signin returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('staff_access_token', json.access_token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan - Intake",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{staff_access_token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"qr_code\": \"{{qr_payload}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/scan/intake",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "scan", "intake"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Intake returns 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('booking_id', json.booking.booking_id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan - Wash Complete",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{staff_access_token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"qr_code\": \"{{qr_payload}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/scan/wash-complete",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "scan", "wash-complete"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Wash complete returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan - Pickup Verify (Expected Conflict Until Ready)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_access_token}}"
+          },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"qr_code\": \"{{qr_payload}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/scan/pickup-verify",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "scan", "pickup-verify"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Pickup verify returns 409 before ready_for_pickup', function () {",
+              "  pm.response.to.have.status(409);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bookings - Collect (Expected Conflict Until Ready)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{student_access_token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/bookings/{{booking_id}}/collect",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "bookings", "{{booking_id}}", "collect"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Collect returns 409 before ready_for_pickup', function () {",
+              "  pm.response.to.have.status(409);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications - My Unread",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{student_access_token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/notifications/my/unread?limit=20&offset=0",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notifications", "my", "unread"],
+          "query": [
+            { "key": "limit", "value": "20" },
+            { "key": "offset", "value": "0" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Unread notifications returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Unread notifications returns array', function () {",
+              "  pm.expect(Array.isArray(json.notifications)).to.eql(true);",
+              "});",
+              "if (json.notifications.length > 0) {",
+              "  pm.collectionVariables.set('notification_id', json.notifications[0].id);",
+              "} else {",
+              "  pm.collectionVariables.set('notification_id', '00000000-0000-0000-0000-000000000000');",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications - Mark Read",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{student_access_token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/notifications/{{notification_id}}/read",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notifications", "{{notification_id}}", "read"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Mark read returns 200 when unread exists, else 404', function () {",
+              "  pm.expect([200, 404]).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001" },
+    { "key": "student_name", "value": "Vishal Student" },
+    { "key": "student_reg_no", "value": "24BCE991001" },
+    { "key": "student_email", "value": "vishal.phase4@vitstudent.ac.in" },
+    { "key": "student_password", "value": "123456" },
+    { "key": "student_access_token", "value": "" },
+    { "key": "student_refresh_token", "value": "" },
+    { "key": "staff_name", "value": "Ravi Staff" },
+    { "key": "staff_phone", "value": "+919876543210" },
+    { "key": "staff_email", "value": "ravi.phase4@washos.local" },
+    { "key": "staff_password", "value": "123456" },
+    { "key": "staff_access_token", "value": "" },
+    { "key": "qr_payload", "value": "" },
+    { "key": "booking_id", "value": "" },
+    { "key": "notification_id", "value": "" }
+  ]
+}

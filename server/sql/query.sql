@@ -14,6 +14,12 @@ FROM students
 WHERE user_id = $1
 LIMIT 1;
 
+-- name: GetStudentByID :one
+SELECT *
+FROM students
+WHERE id = $1
+LIMIT 1;
+
 -- name: GetLaundryStaffByUserID :one
 SELECT *
 FROM laundry_staff
@@ -121,6 +127,28 @@ WHERE bag_id = $1
   AND status <> 'collected'
 ORDER BY created_at DESC
 LIMIT 1;
+
+-- name: GetLatestActiveBookingByStudentID :one
+SELECT *
+FROM bookings
+WHERE student_id = $1
+  AND status <> 'collected'
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- name: ListProcessingBookings :many
+SELECT *
+FROM bookings
+WHERE status IN ('dropped_off', 'washing', 'wash_done', 'drying', 'dry_done')
+ORDER BY updated_at DESC
+LIMIT $1 OFFSET $2;
+
+-- name: ListReadyBookings :many
+SELECT *
+FROM bookings
+WHERE status = 'ready_for_pickup'
+ORDER BY ready_at DESC NULLS LAST, updated_at DESC
+LIMIT $1 OFFSET $2;
 
 -- name: UpdateBookingStatus :one
 UPDATE bookings
@@ -288,6 +316,14 @@ RETURNING *;
 SELECT *
 FROM notifications
 WHERE recipient_user_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: ListUnreadNotificationsByUser :many
+SELECT *
+FROM notifications
+WHERE recipient_user_id = $1
+  AND is_read = FALSE
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3;
 

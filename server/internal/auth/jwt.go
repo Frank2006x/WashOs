@@ -147,4 +147,20 @@ func GenerateQRPayload(claims map[string]interface{}) (string, error) {
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwtClaims)
 	return token.SignedString(jwtSecret())
-}
+}
+
+func ParseAndValidateQRPayload(tokenStr string) (map[string]interface{}, error) {
+	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+		return jwtSecret(), nil
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
+	if err != nil || !token.Valid {
+		return nil, fmt.Errorf("invalid qr payload")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, fmt.Errorf("invalid qr claims")
+	}
+
+	return claims, nil
+}
