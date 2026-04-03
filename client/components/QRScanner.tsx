@@ -14,6 +14,7 @@ import {
   useCameraPermissions,
   BarcodeScanningResult,
 } from "expo-camera";
+import { useTranslation } from "react-i18next";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
   onScan,
   singleScan = true,
 }) => {
+  const { t } = useTranslation();
   const [permission, requestPermission] = useCameraPermissions();
 
   const [scanState, setScanState] = useState<ScanState>(
@@ -120,7 +122,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.statusText}>Requesting camera permission…</Text>
+        <Text style={styles.statusText}>{t("scanner.requesting_permission")}</Text>
       </View>
     );
   }
@@ -130,10 +132,9 @@ const QRScanner: React.FC<QRScannerProps> = ({
     return (
       <View style={styles.centered}>
         <Text style={styles.icon}>🚫</Text>
-        <Text style={styles.deniedTitle}>Camera Access Denied</Text>
+        <Text style={styles.deniedTitle}>{t("scanner.camera_denied")}</Text>
         <Text style={styles.deniedBody}>
-          Please enable camera permission in your device settings to use the QR
-          scanner.
+          {t("scanner.enable_camera_desc")}
         </Text>
         <TouchableOpacity
           style={styles.primaryButton}
@@ -143,7 +144,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
             )
           }
         >
-          <Text style={styles.primaryButtonText}>Grant Permission</Text>
+          <Text style={styles.primaryButtonText}>{t("scanner.grant_permission")}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -157,10 +158,10 @@ const QRScanner: React.FC<QRScannerProps> = ({
         <Text style={styles.headerTitle}>{title}</Text>
         <Text style={styles.headerSubtitle}>
           {scanState === "scanning"
-            ? "Point at a QR code to scan"
+            ? t("scanner.point_to_scan")
             : parseError
-              ? "Invalid QR format"
-              : "Scan complete!"}
+              ? t("scanner.invalid_format")
+              : t("scanner.scan_complete")}
         </Text>
       </View>
 
@@ -183,7 +184,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
                 <View style={[styles.corner, styles.cornerBR]} />
               </View>
               <Text style={styles.overlayHint}>
-                Align QR code within the frame
+                {t("scanner.align_qr")}
               </Text>
             </View>
           </CameraView>
@@ -208,13 +209,13 @@ const QRScanner: React.FC<QRScannerProps> = ({
             ]}
           >
             <Text style={styles.statusBadgeText}>
-              {parseError ? "⚠️  Invalid QR Format" : "✅  Scan Successful"}
+              {parseError ? t("scanner.invalid_format_badge") : t("scanner.scan_success_badge")}
             </Text>
           </View>
 
           {/* Raw value */}
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>Raw Value</Text>
+            <Text style={styles.cardLabel}>{t("scanner.raw_value")}</Text>
             <Text style={styles.cardRaw} selectable>
               {rawValue}
             </Text>
@@ -223,15 +224,15 @@ const QRScanner: React.FC<QRScannerProps> = ({
           {/* Parsed data (only when valid JSON) */}
           {!parseError && scannedData !== null && (
             <View style={styles.card}>
-              <Text style={styles.cardLabel}>Parsed JSON</Text>
-              {renderParsedData(scannedData)}
+              <Text style={styles.cardLabel}>{t("scanner.parsed_json")}</Text>
+              {renderParsedData(scannedData, 0, t)}
             </View>
           )}
 
           {parseError && (
             <View style={[styles.card, styles.cardError]}>
               <Text style={styles.cardErrorText}>
-                The scanned QR code does not contain valid JSON data.
+                {t("scanner.invalid_json_data")}
               </Text>
             </View>
           )}
@@ -245,7 +246,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
             style={styles.primaryButton}
             onPress={handleScanAgain}
           >
-            <Text style={styles.primaryButtonText}>↩ Scan Again</Text>
+            <Text style={styles.primaryButtonText}>{t("scanner.scan_again")}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -258,9 +259,9 @@ const QRScanner: React.FC<QRScannerProps> = ({
 /**
  * Recursively renders parsed JSON as key-value rows.
  */
-function renderParsedData(data: any, depth = 0): React.ReactNode {
+function renderParsedData(data: any, depth = 0, t: any): React.ReactNode {
   if (data === null || data === undefined) {
-    return <Text style={styles.valueNull}>null</Text>;
+    return <Text style={styles.valueNull}>{t("scanner.null_value")}</Text>;
   }
   if (typeof data !== "object") {
     return <Text style={styles.valuePrimitive}>{String(data)}</Text>;
@@ -272,7 +273,7 @@ function renderParsedData(data: any, depth = 0): React.ReactNode {
           <View key={i} style={styles.row}>
             <Text style={styles.rowKey}>[{i}]</Text>
             <View style={styles.rowValue}>
-              {renderParsedData(item, depth + 1)}
+              {renderParsedData(item, depth + 1, t)}
             </View>
           </View>
         ))}
@@ -285,7 +286,7 @@ function renderParsedData(data: any, depth = 0): React.ReactNode {
         <View key={key} style={styles.row}>
           <Text style={styles.rowKey}>{key}</Text>
           <View style={styles.rowValue}>
-            {renderParsedData(value, depth + 1)}
+            {renderParsedData(value, depth + 1, t)}
           </View>
         </View>
       ))}

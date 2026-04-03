@@ -91,5 +91,22 @@
   "qr_modal": {
     "version": "VERSION",
     "help_text": "Show this QR when dropping off your laundry bag.\nRotate if you think your QR has been compromised."
+  },
+  "scanner": {
+    "requesting_permission": "Requesting camera permission…",
+    "camera_denied": "Camera Access Denied",
+    "enable_camera_desc": "Please enable camera permission in your device settings to use the QR scanner.",
+    "grant_permission": "Grant Permission",
+    "point_to_scan": "Point at a QR code to scan",
+    "invalid_format": "Invalid QR format",
+    "scan_complete": "Scan complete!",
+    "align_qr": "Align QR code within the frame",
+    "invalid_format_badge": "⚠️  Invalid QR Format",
+    "scan_success_badge": "✅  Scan Successful",
+    "raw_value": "Raw Value",
+    "parsed_json": "Parsed JSON",
+    "invalid_json_data": "The scanned QR code does not contain valid JSON data.",
+    "scan_again": "↩ Scan Again",
+    "null_value": "null"
   }
 }
