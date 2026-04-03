@@ -1,0 +1,490 @@
+{
+  "info": {
+    "_postman_id": "df1dc8bf-794b-4dd9-a7ec-313f33f2e7c8",
+    "name": "WashOs Phase 5 - Hardening",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health - Ping",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/ping",
+          "host": ["{{baseUrl}}"],
+          "path": ["ping"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ping returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Student Signup",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const seed = Date.now().toString();",
+              "pm.collectionVariables.set('student_name', 'Student ' + seed.slice(-4));",
+              "pm.collectionVariables.set('student_reg_no', '24BCE' + seed.slice(-6));",
+              "pm.collectionVariables.set('student_email', 'student.' + seed + '@vitstudent.ac.in');",
+              "if (!pm.collectionVariables.get('student_password')) {",
+              "  pm.collectionVariables.set('student_password', '123456');",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Student signup returns 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"{{student_name}}\",\n  \"reg_no\": \"{{student_reg_no}}\",\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/student/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "student", "signup"]
+        }
+      }
+    },
+    {
+      "name": "Auth - Student Signin",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/student/signin",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "student", "signin"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Student signin returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('student_access_token', json.access_token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Student Signin Wrong Password",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{student_email}}\",\n  \"password\": \"wrong-password\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/student/signin",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "student", "signin"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Wrong password returns 401', function () {",
+              "  pm.response.to.have.status(401);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student - Init Bag",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{student_access_token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/student/me/bag/init",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "student", "me", "bag", "init"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Init bag returns 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('qr_payload', json.qr_payload);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Staff Signup",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const seed = Date.now().toString();",
+              "pm.collectionVariables.set('staff_name', 'Staff ' + seed.slice(-4));",
+              "pm.collectionVariables.set('staff_phone', '+9198' + seed.slice(-8));",
+              "pm.collectionVariables.set('staff_email', 'staff.' + seed + '@washos.local');",
+              "if (!pm.collectionVariables.get('staff_password')) {",
+              "  pm.collectionVariables.set('staff_password', '123456');",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Staff signup returns 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"{{staff_name}}\",\n  \"phone\": \"{{staff_phone}}\",\n  \"email\": \"{{staff_email}}\",\n  \"password\": \"{{staff_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/staff/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "staff", "signup"]
+        }
+      }
+    },
+    {
+      "name": "Auth - Staff Signin",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"{{staff_phone}}\",\n  \"password\": \"{{staff_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/staff/signin",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "staff", "signin"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Staff signin returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('staff_access_token', json.access_token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan - Intake (First)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{staff_access_token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"qr_code\": \"{{qr_payload}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/scan/intake",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "scan", "intake"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('First intake returns 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('booking_id', json.booking.booking_id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan - Intake (Idempotent)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{staff_access_token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"qr_code\": \"{{qr_payload}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/scan/intake",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "scan", "intake"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Second intake returns 200 idempotent', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan - Wash Complete (First)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{staff_access_token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"qr_code\": \"{{qr_payload}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/scan/wash-complete",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "scan", "wash-complete"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('First wash-complete returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Status is wash_done', function () {",
+              "  pm.expect(json.booking.status).to.eql('wash_done');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan - Wash Complete (Idempotent)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{staff_access_token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"qr_code\": \"{{qr_payload}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/scan/wash-complete",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "scan", "wash-complete"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Second wash-complete returns 200 idempotent', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bookings - Collect Before Ready (Strict Transition)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{student_access_token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/bookings/{{booking_id}}/collect",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "bookings", "{{booking_id}}", "collect"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Collect before ready returns 409', function () {",
+              "  pm.response.to.have.status(409);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Bookings Overview (Optional)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{staff_access_token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/admin/bookings/overview",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "admin", "bookings", "overview"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin overview returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Warden - Bookings by Block (Optional)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{staff_access_token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/warden/bookings/block/A?limit=20&offset=0",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "warden", "bookings", "block", "A"],
+          "query": [
+            { "key": "limit", "value": "20" },
+            { "key": "offset", "value": "0" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Warden block list returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Warden response has bookings array', function () {",
+              "  pm.expect(Array.isArray(json.bookings)).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001" },
+    { "key": "student_name", "value": "Vishal Student" },
+    { "key": "student_reg_no", "value": "24BCE992001" },
+    { "key": "student_email", "value": "vishal.phase5@vitstudent.ac.in" },
+    { "key": "student_password", "value": "123456" },
+    { "key": "student_access_token", "value": "" },
+    { "key": "staff_name", "value": "Ravi Staff" },
+    { "key": "staff_phone", "value": "+919876543211" },
+    { "key": "staff_email", "value": "ravi.phase5@washos.local" },
+    { "key": "staff_password", "value": "123456" },
+    { "key": "staff_access_token", "value": "" },
+    { "key": "qr_payload", "value": "" },
+    { "key": "booking_id", "value": "" }
+  ]
+}

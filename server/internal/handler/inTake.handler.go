@@ -25,6 +25,43 @@ type scheduleSlot struct {
 	IsToday     bool   `json:"is_today"`
 }
 
+func hasStatus(status dbgen.BookingStatus, allowed ...dbgen.BookingStatus) bool {
+	for _, a := range allowed {
+		if status == a {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *Handler) logActionRejected(
+	c fiber.Ctx,
+	bookingID pgtype.UUID,
+	bagID pgtype.UUID,
+	studentID pgtype.UUID,
+	actorUserID pgtype.UUID,
+	action string,
+	reason string,
+	meta map[string]interface{},
+) {
+	if meta == nil {
+		meta = map[string]interface{}{}
+	}
+	meta["action"] = action
+	meta["reason"] = reason
+	metaBytes, _ := json.Marshal(meta)
+
+	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+		BookingID:         bookingID,
+		BagID:             bagID,
+		StudentID:         studentID,
+		TriggeredByUserID: actorUserID,
+		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
+		EventType:         dbgen.WorkflowEventTypeActionRejected,
+		Metadata:          metaBytes,
+	})
+}
+
 func formatHHMM(minutes int) string {
 	h := minutes / 60
 	m := minutes % 60
@@ -244,6 +281,42 @@ func (h *Handler) IntakeScan(c fiber.Ctx) error {
 
 	activeBooking, activeErr := h.Queries.GetLatestActiveBookingByBagID(c.Context(), bag.ID)
 	if activeErr == nil {
+		if activeBooking.Status == dbgen.BookingStatusDroppedOff {
+			metadata, _ := json.Marshal(map[string]interface{}{
+				"source":     "scan_intake",
+				"qr_version": version,
+				"idempotent": true,
+			})
+			_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+				BookingID:         pgtype.UUID{Bytes: activeBooking.ID.Bytes, Valid: true},
+				BagID:             bag.ID,
+				StudentID:         student.ID,
+				TriggeredByUserID: actorUserID,
+				TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
+				EventType:         dbgen.WorkflowEventTypeReceived,
+				Metadata:          metadata,
+			})
+
+			return c.Status(fiber.StatusOK).JSON(fiber.Map{
+				"message": "intake already recorded",
+				"booking": fiber.Map{
+					"booking_id": pgUUIDToStr(activeBooking.ID),
+					"status":     activeBooking.Status,
+				},
+			})
+		}
+
+		h.logActionRejected(
+			c,
+			pgtype.UUID{Bytes: activeBooking.ID.Bytes, Valid: true},
+			bag.ID,
+			student.ID,
+			actorUserID,
+			"intake_scan",
+			"active_booking_not_dropped_off",
+			map[string]interface{}{"status": activeBooking.Status},
+		)
+
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 			"error": "active booking already exists for this bag",
 			"booking": fiber.Map{
@@ -330,8 +403,8 @@ func (h *Handler) WashCompleteScan(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch active booking")
 	}
 
-	switch booking.Status {
-	case dbgen.BookingStatusDroppedOff, dbgen.BookingStatusWashing:
+	switch {
+	case hasStatus(booking.Status, dbgen.BookingStatusDroppedOff, dbgen.BookingStatusWashing):
 		booking, err = h.Queries.SetBookingWashDone(c.Context(), dbgen.SetBookingWashDoneParams{
 			ID:              booking.ID,
 			LastActorUserID: actorUserID,
@@ -359,16 +432,51 @@ func (h *Handler) WashCompleteScan(c fiber.Ctx) error {
 			"booking": booking,
 		})
 
-	case dbgen.BookingStatusWashDone, dbgen.BookingStatusDrying, dbgen.BookingStatusDryDone:
+	case hasStatus(booking.Status, dbgen.BookingStatusWashDone, dbgen.BookingStatusDrying, dbgen.BookingStatusDryDone):
+		metadata, _ := json.Marshal(map[string]interface{}{
+			"source":     "scan_wash_complete",
+			"idempotent": true,
+			"status":     booking.Status,
+		})
+		_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+			BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+			BagID:             bag.ID,
+			StudentID:         student.ID,
+			TriggeredByUserID: actorUserID,
+			TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
+			EventType:         dbgen.WorkflowEventTypeWashFinished,
+			Metadata:          metadata,
+		})
+
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"message": "booking already marked as washed",
 			"booking": booking,
 		})
 
-	case dbgen.BookingStatusReadyForPickup, dbgen.BookingStatusCollected:
+	case hasStatus(booking.Status, dbgen.BookingStatusReadyForPickup, dbgen.BookingStatusCollected):
+		h.logActionRejected(
+			c,
+			pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+			bag.ID,
+			student.ID,
+			actorUserID,
+			"wash_complete_scan",
+			"booking_past_wash_stage",
+			map[string]interface{}{"status": booking.Status},
+		)
 		return fiber.NewError(fiber.StatusConflict, "booking already past wash completion stage")
 
 	default:
+		h.logActionRejected(
+			c,
+			pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+			bag.ID,
+			student.ID,
+			actorUserID,
+			"wash_complete_scan",
+			"booking_not_washable",
+			map[string]interface{}{"status": booking.Status},
+		)
 		return fiber.NewError(fiber.StatusConflict, "booking is not in a washable stage")
 	}
 }
@@ -1190,6 +1298,10 @@ func (h *Handler) PickupVerifyScan(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	actorUserID, err := currentUserIDFromCtx(c)
+	if err != nil {
+		return err
+	}
 
 	var body struct {
 		QRCode string `json:"qr_code"`
@@ -1220,12 +1332,36 @@ func (h *Handler) PickupVerifyScan(c fiber.Ctx) error {
 	}
 
 	if booking.Status != dbgen.BookingStatusReadyForPickup {
+		h.logActionRejected(
+			c,
+			pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+			bag.ID,
+			student.ID,
+			actorUserID,
+			"pickup_verify_scan",
+			"booking_not_ready_for_pickup",
+			map[string]interface{}{"status": booking.Status},
+		)
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 			"error":          "booking is not ready for pickup",
 			"current_status": booking.Status,
 			"booking_id":     pgUUIDToStr(booking.ID),
 		})
 	}
+
+	metadata, _ := json.Marshal(map[string]interface{}{
+		"action":   "pickup_verify_scan",
+		"verified": true,
+	})
+	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+		BagID:             booking.BagID,
+		StudentID:         booking.StudentID,
+		TriggeredByUserID: actorUserID,
+		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleStudent, Valid: true},
+		EventType:         dbgen.WorkflowEventTypeActionRejected,
+		Metadata:          metadata,
+	})
 
 	return c.JSON(fiber.Map{
 		"verified": true,
@@ -1268,6 +1404,20 @@ func (h *Handler) CollectBooking(c fiber.Ctx) error {
 	}
 
 	if booking.Status == dbgen.BookingStatusCollected {
+		metadata, _ := json.Marshal(map[string]interface{}{
+			"action":     "collect_booking",
+			"idempotent": true,
+		})
+		_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+			BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+			BagID:             booking.BagID,
+			StudentID:         booking.StudentID,
+			TriggeredByUserID: actorUserID,
+			TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleStudent, Valid: true},
+			EventType:         dbgen.WorkflowEventTypeCollected,
+			Metadata:          metadata,
+		})
+
 		return c.JSON(fiber.Map{
 			"message": "booking already collected",
 			"booking": booking,
@@ -1275,6 +1425,17 @@ func (h *Handler) CollectBooking(c fiber.Ctx) error {
 	}
 
 	if booking.Status != dbgen.BookingStatusReadyForPickup {
+		h.logActionRejected(
+			c,
+			pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+			booking.BagID,
+			booking.StudentID,
+			actorUserID,
+			"collect_booking",
+			"booking_not_ready_for_pickup",
+			map[string]interface{}{"status": booking.Status},
+		)
+
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 			"error":          "booking is not ready for pickup",
 			"current_status": booking.Status,
@@ -1391,4 +1552,57 @@ func (h *Handler) MarkMyNotificationRead(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"notification": notification})
+}
+
+// GET /api/admin/bookings/overview (optional)
+func (h *Handler) AdminBookingsOverview(c fiber.Ctx) error {
+	if _, _, err := h.requireStaff(c); err != nil {
+		return err
+	}
+
+	rows, err := h.Queries.CountBookingsOverview(c.Context())
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to build bookings overview")
+	}
+
+	overview := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		overview[string(row.Status)] = row.Total
+	}
+
+	return c.JSON(fiber.Map{"overview": overview})
+}
+
+// GET /api/warden/bookings/block/:blockId (optional)
+func (h *Handler) WardenBookingsByBlock(c fiber.Ctx) error {
+	if _, _, err := h.requireStaff(c); err != nil {
+		return err
+	}
+
+	blockID := strings.TrimSpace(c.Params("blockId"))
+	if blockID == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "blockId is required")
+	}
+
+	limit, offset, err := parsePagination(c)
+	if err != nil {
+		return err
+	}
+
+	bookings, err := h.Queries.ListBookingsByBlock(c.Context(), dbgen.ListBookingsByBlockParams{
+		Upper:  blockID,
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to list bookings by block")
+	}
+	if bookings == nil {
+		bookings = []dbgen.Booking{}
+	}
+
+	return c.JSON(fiber.Map{
+		"block":    strings.ToUpper(blockID),
+		"bookings": bookings,
+	})
 }

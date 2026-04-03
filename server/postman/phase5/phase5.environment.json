@@ -1,0 +1,22 @@
+{
+  "id": "e6cc71f3-b49f-4f00-9a41-9f73f4be4912",
+  "name": "WashOs Phase5 Local",
+  "values": [
+    { "key": "baseUrl", "value": "http://localhost:3001", "type": "default", "enabled": true },
+    { "key": "student_name", "value": "Vishal Student", "type": "default", "enabled": true },
+    { "key": "student_reg_no", "value": "24BCE992001", "type": "default", "enabled": true },
+    { "key": "student_email", "value": "vishal.phase5@vitstudent.ac.in", "type": "default", "enabled": true },
+    { "key": "student_password", "value": "123456", "type": "default", "enabled": true },
+    { "key": "student_access_token", "value": "", "type": "default", "enabled": true },
+    { "key": "staff_name", "value": "Ravi Staff", "type": "default", "enabled": true },
+    { "key": "staff_phone", "value": "+919876543211", "type": "default", "enabled": true },
+    { "key": "staff_email", "value": "ravi.phase5@washos.local", "type": "default", "enabled": true },
+    { "key": "staff_password", "value": "123456", "type": "default", "enabled": true },
+    { "key": "staff_access_token", "value": "", "type": "default", "enabled": true },
+    { "key": "qr_payload", "value": "", "type": "default", "enabled": true },
+    { "key": "booking_id", "value": "", "type": "default", "enabled": true }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2026-04-04T00:00:00.000Z",
+  "_postman_exported_using": "GitHub Copilot"
+}

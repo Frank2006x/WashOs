@@ -8,9 +8,24 @@
       "type": "default",
       "enabled": true
     },
-    { "key": "student_name", "value": "Vishal Student", "type": "default", "enabled": true },
-    { "key": "student_reg_no", "value": "24BCE991001", "type": "default", "enabled": true },
-    { "key": "student_email", "value": "vishal.phase4@vitstudent.ac.in", "type": "default", "enabled": true },
+    {
+      "key": "student_name",
+      "value": "Vishal Student",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "student_reg_no",
+      "value": "24BCE991001",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "student_email",
+      "value": "vishal.phase4@vitstudent.ac.in",
+      "type": "default",
+      "enabled": true
+    },
     {
       "key": "student_password",
       "value": "123456",
@@ -29,9 +44,24 @@
       "type": "default",
       "enabled": true
     },
-    { "key": "staff_name", "value": "Ravi Staff", "type": "default", "enabled": true },
-    { "key": "staff_phone", "value": "+919876543210", "type": "default", "enabled": true },
-    { "key": "staff_email", "value": "ravi.phase4@washos.local", "type": "default", "enabled": true },
+    {
+      "key": "staff_name",
+      "value": "Ravi Staff",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_phone",
+      "value": "+919876543210",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_email",
+      "value": "ravi.phase4@washos.local",
+      "type": "default",
+      "enabled": true
+    },
     {
       "key": "staff_password",
       "value": "123456",

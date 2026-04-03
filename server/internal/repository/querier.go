@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	CountBookingsOverview(ctx context.Context) ([]CountBookingsOverviewRow, error)
 	// =========================
 	// Booking Queries
 	// =========================
@@ -50,6 +51,7 @@ type Querier interface {
 	// =========================
 	// One bag per student; idempotent init.
 	InitStudentBag(ctx context.Context, studentID pgtype.UUID) (Bag, error)
+	ListBookingsByBlock(ctx context.Context, arg ListBookingsByBlockParams) ([]Booking, error)
 	// =========================
 	// Machine and Run Queries
 	// =========================
