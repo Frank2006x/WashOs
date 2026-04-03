@@ -2,6 +2,7 @@ package handler
 
 import (
 	"Frank2006x/washos/internal/auth"
+	"fmt"
 
 	dbgen "Frank2006x/washos/internal/repository"
 
@@ -29,7 +30,7 @@ func (h *Handler) Login(c fiber.Ctx) error {
 	}
 
 	user, err := h.Queries.GetUserByEmail(c.Context(), body.Email)
-	
+	fmt.Printf("User: %+v\n", user.Password)
 	if err != nil {
 		return fiber.ErrUnauthorized
 	}
