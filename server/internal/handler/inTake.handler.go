@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -296,4 +297,205 @@ func (h *Handler) IntakeScan(c fiber.Ctx) error {
 			"name":       student.Name,
 		},
 	})
+}
+
+// POST /api/scan/wash-complete
+func (h *Handler) WashCompleteScan(c fiber.Ctx) error {
+	_, actorUserID, err := h.requireStaff(c)
+	if err != nil {
+		return err
+	}
+
+	var body struct {
+		QRCode string `json:"qr_code"`
+	}
+	if err := c.Bind().Body(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	body.QRCode = strings.TrimSpace(body.QRCode)
+	if body.QRCode == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "qr_code is required")
+	}
+
+	bag, student, version, err := h.fetchValidatedBagFromQR(c, body.QRCode)
+	if err != nil {
+		return err
+	}
+
+	booking, err := h.Queries.GetLatestActiveBookingByBagID(c.Context(), bag.ID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "no active booking found for this bag")
+		}
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch active booking")
+	}
+
+	switch booking.Status {
+	case dbgen.BookingStatusDroppedOff, dbgen.BookingStatusWashing:
+		booking, err = h.Queries.SetBookingWashDone(c.Context(), dbgen.SetBookingWashDoneParams{
+			ID:              booking.ID,
+			LastActorUserID: actorUserID,
+		})
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "failed to mark booking wash_done")
+		}
+
+		metadata, _ := json.Marshal(map[string]interface{}{
+			"source":     "scan_wash_complete",
+			"qr_version": version,
+		})
+		_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+			BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+			BagID:             bag.ID,
+			StudentID:         student.ID,
+			TriggeredByUserID: actorUserID,
+			TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
+			EventType:         dbgen.WorkflowEventTypeWashFinished,
+			Metadata:          metadata,
+		})
+
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"message": "bag marked wash_done",
+			"booking": booking,
+		})
+
+	case dbgen.BookingStatusWashDone, dbgen.BookingStatusDrying, dbgen.BookingStatusDryDone:
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"message": "booking already marked as washed",
+			"booking": booking,
+		})
+
+	case dbgen.BookingStatusReadyForPickup, dbgen.BookingStatusCollected:
+		return fiber.NewError(fiber.StatusConflict, "booking already past wash completion stage")
+
+	default:
+		return fiber.NewError(fiber.StatusConflict, "booking is not in a washable stage")
+	}
+}
+
+func parsePagination(c fiber.Ctx) (int32, int32, error) {
+	limit := int32(20)
+	offset := int32(0)
+
+	if c.Query("limit") != "" {
+		parsed, err := strconv.Atoi(c.Query("limit"))
+		if err != nil || parsed <= 0 || parsed > 100 {
+			return 0, 0, fiber.NewError(fiber.StatusBadRequest, "limit must be between 1 and 100")
+		}
+		limit = int32(parsed)
+	}
+
+	if c.Query("offset") != "" {
+		parsed, err := strconv.Atoi(c.Query("offset"))
+		if err != nil || parsed < 0 {
+			return 0, 0, fiber.NewError(fiber.StatusBadRequest, "offset must be >= 0")
+		}
+		offset = int32(parsed)
+	}
+
+	return limit, offset, nil
+}
+
+// GET /api/bookings/processing
+func (h *Handler) ListProcessingBookings(c fiber.Ctx) error {
+	if _, _, err := h.requireStaff(c); err != nil {
+		return err
+	}
+
+	limit, offset, err := parsePagination(c)
+	if err != nil {
+		return err
+	}
+
+	bookings, err := h.Queries.ListProcessingBookings(c.Context(), dbgen.ListProcessingBookingsParams{
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to list processing bookings")
+	}
+	if bookings == nil {
+		bookings = []dbgen.Booking{}
+	}
+
+	return c.JSON(fiber.Map{"bookings": bookings})
+}
+
+// GET /api/bookings/ready
+func (h *Handler) ListReadyBookings(c fiber.Ctx) error {
+	if _, _, err := h.requireStaff(c); err != nil {
+		return err
+	}
+
+	limit, offset, err := parsePagination(c)
+	if err != nil {
+		return err
+	}
+
+	bookings, err := h.Queries.ListReadyBookings(c.Context(), dbgen.ListReadyBookingsParams{
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to list ready bookings")
+	}
+	if bookings == nil {
+		bookings = []dbgen.Booking{}
+	}
+
+	return c.JSON(fiber.Map{"bookings": bookings})
+}
+
+// GET /api/bookings/my/active
+func (h *Handler) GetMyActiveBooking(c fiber.Ctx) error {
+	student, err := h.requireStudent(c)
+	if err != nil {
+		return err
+	}
+
+	booking, err := h.Queries.GetLatestActiveBookingByStudentID(c.Context(), student.ID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return c.JSON(fiber.Map{"booking": nil})
+		}
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to get active booking")
+	}
+
+	return c.JSON(fiber.Map{"booking": booking})
+}
+
+// GET /api/bookings/:id
+func (h *Handler) GetBookingDetails(c fiber.Ctx) error {
+	bookingIDStr := strings.TrimSpace(c.Params("id"))
+	if bookingIDStr == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "booking id is required")
+	}
+
+	var bookingID pgtype.UUID
+	if err := bookingID.Scan(bookingIDStr); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid booking id")
+	}
+
+	booking, err := h.Queries.GetBookingByID(c.Context(), bookingID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fiber.NewError(fiber.StatusNotFound, "booking not found")
+		}
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch booking")
+	}
+
+	if _, _, err := h.requireStaff(c); err == nil {
+		return c.JSON(fiber.Map{"booking": booking})
+	}
+
+	student, err := h.requireStudent(c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusForbidden, "not allowed to access this booking")
+	}
+
+	if pgUUIDToStr(booking.StudentID) != pgUUIDToStr(student.ID) {
+		return fiber.NewError(fiber.StatusForbidden, "not allowed to access this booking")
+	}
+
+	return c.JSON(fiber.Map{"booking": booking})
 }

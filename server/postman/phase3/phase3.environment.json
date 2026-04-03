@@ -1,0 +1,99 @@
+{
+  "id": "cb9fdb5c-8157-4b36-af98-33065dc3f04d",
+  "name": "WashOs Phase3 Local",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "student_name",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "student_reg_no",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "student_email",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "student_password",
+      "value": "123456",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "student_access_token",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "student_refresh_token",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_name",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_phone",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_email",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_password",
+      "value": "123456",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_access_token",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_refresh_token",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "qr_payload",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "booking_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2026-04-04T00:00:00.000Z",
+  "_postman_exported_using": "GitHub Copilot"
+}

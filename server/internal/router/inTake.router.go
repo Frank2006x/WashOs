@@ -18,4 +18,11 @@ func SetupPhase2Routes(app *fiber.App, h *handler.Handler) {
 
 	scanGroup := apiGroup.Group("/scan", auth.AuthMiddleware)
 	scanGroup.Post("/intake", h.IntakeScan)
+	scanGroup.Post("/wash-complete", h.WashCompleteScan)
+
+	bookingGroup := apiGroup.Group("/bookings", auth.AuthMiddleware)
+	bookingGroup.Get("/processing", h.ListProcessingBookings)
+	bookingGroup.Get("/ready", h.ListReadyBookings)
+	bookingGroup.Get("/my/active", h.GetMyActiveBooking)
+	bookingGroup.Get("/:id", h.GetBookingDetails)
 }

@@ -464,6 +464,39 @@ func (q *Queries) GetLatestActiveBookingByBagID(ctx context.Context, bagID pgtyp
 	return i, err
 }
 
+const getLatestActiveBookingByStudentID = `-- name: GetLatestActiveBookingByStudentID :one
+SELECT id, student_id, bag_id, status, received_at, wash_started_at, wash_finished_at, dry_started_at, dry_finished_at, ready_at, collected_at, row_no, notes, last_actor_user_id, created_at, updated_at
+FROM bookings
+WHERE student_id = $1
+  AND status <> 'collected'
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestActiveBookingByStudentID(ctx context.Context, studentID pgtype.UUID) (Booking, error) {
+	row := q.db.QueryRow(ctx, getLatestActiveBookingByStudentID, studentID)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.BagID,
+		&i.Status,
+		&i.ReceivedAt,
+		&i.WashStartedAt,
+		&i.WashFinishedAt,
+		&i.DryStartedAt,
+		&i.DryFinishedAt,
+		&i.ReadyAt,
+		&i.CollectedAt,
+		&i.RowNo,
+		&i.Notes,
+		&i.LastActorUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getLaundryStaffByUserID = `-- name: GetLaundryStaffByUserID :one
 SELECT id, user_id, name, phone, laundry_service_id, created_at, updated_at
 FROM laundry_staff
@@ -805,6 +838,106 @@ func (q *Queries) ListNotificationsByUser(ctx context.Context, arg ListNotificat
 			&i.ReadAt,
 			&i.SentAt,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProcessingBookings = `-- name: ListProcessingBookings :many
+SELECT id, student_id, bag_id, status, received_at, wash_started_at, wash_finished_at, dry_started_at, dry_finished_at, ready_at, collected_at, row_no, notes, last_actor_user_id, created_at, updated_at
+FROM bookings
+WHERE status IN ('dropped_off', 'washing', 'wash_done', 'drying', 'dry_done')
+ORDER BY updated_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListProcessingBookingsParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListProcessingBookings(ctx context.Context, arg ListProcessingBookingsParams) ([]Booking, error) {
+	rows, err := q.db.Query(ctx, listProcessingBookings, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Booking
+	for rows.Next() {
+		var i Booking
+		if err := rows.Scan(
+			&i.ID,
+			&i.StudentID,
+			&i.BagID,
+			&i.Status,
+			&i.ReceivedAt,
+			&i.WashStartedAt,
+			&i.WashFinishedAt,
+			&i.DryStartedAt,
+			&i.DryFinishedAt,
+			&i.ReadyAt,
+			&i.CollectedAt,
+			&i.RowNo,
+			&i.Notes,
+			&i.LastActorUserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReadyBookings = `-- name: ListReadyBookings :many
+SELECT id, student_id, bag_id, status, received_at, wash_started_at, wash_finished_at, dry_started_at, dry_finished_at, ready_at, collected_at, row_no, notes, last_actor_user_id, created_at, updated_at
+FROM bookings
+WHERE status = 'ready_for_pickup'
+ORDER BY ready_at DESC NULLS LAST, updated_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListReadyBookingsParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListReadyBookings(ctx context.Context, arg ListReadyBookingsParams) ([]Booking, error) {
+	rows, err := q.db.Query(ctx, listReadyBookings, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Booking
+	for rows.Next() {
+		var i Booking
+		if err := rows.Scan(
+			&i.ID,
+			&i.StudentID,
+			&i.BagID,
+			&i.Status,
+			&i.ReceivedAt,
+			&i.WashStartedAt,
+			&i.WashFinishedAt,
+			&i.DryStartedAt,
+			&i.DryFinishedAt,
+			&i.ReadyAt,
+			&i.CollectedAt,
+			&i.RowNo,
+			&i.Notes,
+			&i.LastActorUserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

@@ -128,6 +128,28 @@ WHERE bag_id = $1
 ORDER BY created_at DESC
 LIMIT 1;
 
+-- name: GetLatestActiveBookingByStudentID :one
+SELECT *
+FROM bookings
+WHERE student_id = $1
+  AND status <> 'collected'
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- name: ListProcessingBookings :many
+SELECT *
+FROM bookings
+WHERE status IN ('dropped_off', 'washing', 'wash_done', 'drying', 'dry_done')
+ORDER BY updated_at DESC
+LIMIT $1 OFFSET $2;
+
+-- name: ListReadyBookings :many
+SELECT *
+FROM bookings
+WHERE status = 'ready_for_pickup'
+ORDER BY ready_at DESC NULLS LAST, updated_at DESC
+LIMIT $1 OFFSET $2;
+
 -- name: UpdateBookingStatus :one
 UPDATE bookings
 SET status = $2,
