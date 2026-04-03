@@ -12,8 +12,6 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/joho/godotenv"
-	"log"
-	"os"
 )
 
 func main() {
