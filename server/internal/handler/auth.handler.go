@@ -34,7 +34,9 @@ func (h *Handler) Login(c fiber.Ctx) error {
 		return fiber.ErrUnauthorized
 	}
 
-	
+	if (user.Password != body.Password) {
+		return fiber.ErrUnauthorized
+	}
 
 
 	token, err := auth.GenerateToken(user.ID.String())
