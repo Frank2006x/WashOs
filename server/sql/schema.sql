@@ -1,21 +1,29 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-CREATE TYPE user_role AS ENUM (
-  'student',
-  'staff',
-  'warden',
-  'admin'
-);
+DO $$ BEGIN
+  CREATE TYPE user_role AS ENUM (
+    'student',
+    'staff',
+    'warden',
+    'admin'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TYPE booking_status AS ENUM (
-  'created',
-  'received',
-  'washing',
-  'ready',
-  'collected'
-);
+DO $$ BEGIN
+  CREATE TYPE booking_status AS ENUM (
+    'created',
+    'received',
+    'washing',
+    'ready',
+    'collected'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
@@ -25,14 +33,14 @@ CREATE TABLE users (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE blocks (
+CREATE TABLE IF NOT EXISTS blocks (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL UNIQUE,
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE floors (
+CREATE TABLE IF NOT EXISTS floors (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   block_id UUID NOT NULL REFERENCES blocks(id) ON DELETE CASCADE,
 
@@ -43,7 +51,7 @@ CREATE TABLE floors (
   UNIQUE (block_id, floor_number)
 );
 
-CREATE TABLE rooms (
+CREATE TABLE IF NOT EXISTS rooms (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   floor_id UUID NOT NULL REFERENCES floors(id) ON DELETE CASCADE,
 
@@ -54,7 +62,7 @@ CREATE TABLE rooms (
   UNIQUE (floor_id, room_number)
 );
 
-CREATE TABLE students (
+CREATE TABLE IF NOT EXISTS students (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
   user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -67,7 +75,7 @@ CREATE TABLE students (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE laundry_services (
+CREATE TABLE IF NOT EXISTS laundry_services (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
   name TEXT NOT NULL,
@@ -76,7 +84,7 @@ CREATE TABLE laundry_services (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE laundry_staff (
+CREATE TABLE IF NOT EXISTS laundry_staff (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
   user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -89,7 +97,7 @@ CREATE TABLE laundry_staff (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE wardens (
+CREATE TABLE IF NOT EXISTS wardens (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
   user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -102,7 +110,7 @@ CREATE TABLE wardens (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE bags (
+CREATE TABLE IF NOT EXISTS bags (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
   student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
@@ -114,7 +122,7 @@ CREATE TABLE bags (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE bookings (
+CREATE TABLE IF NOT EXISTS bookings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
   student_id UUID NOT NULL REFERENCES students(id),
@@ -130,7 +138,7 @@ CREATE TABLE bookings (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE schedule_templates (
+CREATE TABLE IF NOT EXISTS schedule_templates (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
   block_id UUID NOT NULL REFERENCES blocks(id),
@@ -149,7 +157,7 @@ CREATE TABLE schedule_templates (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE schedule_instances (
+CREATE TABLE IF NOT EXISTS schedule_instances (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
   template_id UUID REFERENCES schedule_templates(id) ON DELETE SET NULL,
