@@ -7,6 +7,8 @@ import (
 )
 
 func SetupAuthRoutes(app *fiber.App, h *handler.Handler) {
-	authGroup:= app.Group("/auth")
+	apiGroup := app.Group("/api")
+	authGroup := apiGroup.Group("/auth")
 	authGroup.Post("/login", h.Login)
+	authGroup.Post("/logout", h.Logout)
 }

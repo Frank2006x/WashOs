@@ -7,6 +7,8 @@ package dbgen
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getUserByEmail = `-- name: GetUserByEmail :one
@@ -26,6 +28,69 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Role,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getStudentByUserID = `-- name: GetStudentByUserID :one
+SELECT id, user_id, name, phone, room_id, created_at
+FROM students
+WHERE user_id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetStudentByUserID(ctx context.Context, userID pgtype.UUID) (Student, error) {
+	row := q.db.QueryRow(ctx, getStudentByUserID, userID)
+	var i Student
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Phone,
+		&i.RoomID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getWardenByUserID = `-- name: GetWardenByUserID :one
+SELECT id, user_id, name, phone, block_id, created_at
+FROM wardens
+WHERE user_id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetWardenByUserID(ctx context.Context, userID pgtype.UUID) (Warden, error) {
+	row := q.db.QueryRow(ctx, getWardenByUserID, userID)
+	var i Warden
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Phone,
+		&i.BlockID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getLaundryStaffByUserID = `-- name: GetLaundryStaffByUserID :one
+SELECT id, user_id, name, phone, laundry_service_id, created_at
+FROM laundry_staff
+WHERE user_id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetLaundryStaffByUserID(ctx context.Context, userID pgtype.UUID) (LaundryStaff, error) {
+	row := q.db.QueryRow(ctx, getLaundryStaffByUserID, userID)
+	var i LaundryStaff
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Phone,
+		&i.LaundryServiceID,
+		&i.CreatedAt,
 	)
 	return i, err
 }

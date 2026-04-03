@@ -5,19 +5,29 @@ import { useColorScheme } from "nativewind";
 import { useState } from "react";
 import {
   Pressable,
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
   View,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../contexts/AuthContext";
+import { UserRole } from "../types/auth";
+
+type UserType = 'student' | 'warden' | 'staff';
 
 export default function Index() {
   const { colorScheme: currentScheme } = useColorScheme();
   const router = useRouter();
+  const { login } = useAuth();
+  
+  const [selectedType, setSelectedType] = useState<UserType>('student');
   const [secureText, setSecureText] = useState(true);
-  const [institutionId, setInstitutionId] = useState("");
-  const [securityCode, setSecurityCode] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const resolvedScheme = currentScheme ?? "light";
   const palette =
@@ -31,6 +41,37 @@ export default function Index() {
           placeholder: "#83827d",
         };
 
+  const userTypes = [
+    { id: 'student' as UserType, label: 'Student', icon: 'school' },
+    { id: 'warden' as UserType, label: 'Warden', icon: 'admin-panel-settings' },
+    { id: 'staff' as UserType, label: 'Laundry Staff', icon: 'local-laundry-service' },
+  ];
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter email and password');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await login(email, password);
+      router.replace("/(tabs)");
+    } catch (error: any) {
+      Alert.alert('Login Failed', error.message || 'Invalid credentials');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getPlaceholderEmail = () => {
+    switch (selectedType) {
+      case 'student': return 'student1@washos.com';
+      case 'warden': return 'warden1@washos.com';
+      case 'staff': return 'laundry1@washos.com';
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-background dark:bg-background-dark">
       <StatusBar style={resolvedScheme === "dark" ? "light" : "dark"} />
@@ -43,7 +84,7 @@ export default function Index() {
         keyboardShouldPersistTaps="handled"
       >
         <View className="w-full max-w-md self-center">
-          <View className="mb-14 items-center">
+          <View className="mb-12 items-center">
             <Text className="mb-3 text-xs font-bold uppercase tracking-[4px] text-primary-dark dark:text-primary">
               Wash Os
             </Text>
@@ -51,39 +92,76 @@ export default function Index() {
               Welcome Back
             </Text>
             <Text className="max-w-[320px] text-center text-sm font-medium leading-relaxed text-muted-foreground dark:text-muted-foreground-dark">
-              Sign in to schedule and track your laundry in seconds.
+              Sign in to schedule and track your laundry
             </Text>
           </View>
 
+          {/* User Type Selector */}
+          <View className="mb-8">
+            <Text className="mb-3 text-[11px] font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
+              Login As
+            </Text>
+            <View className="flex-row gap-2">
+              {userTypes.map((type) => (
+                <Pressable
+                  key={type.id}
+                  onPress={() => setSelectedType(type.id)}
+                  className={`flex-1 items-center rounded-xl border-2 py-3 ${
+                    selectedType === type.id
+                      ? 'border-primary-dark bg-primary-dark/10 dark:border-primary dark:bg-primary/10'
+                      : 'border-border bg-card dark:border-border-dark dark:bg-card-dark'
+                  }`}
+                >
+                  <MaterialIcons
+                    name={type.icon as any}
+                    size={24}
+                    color={selectedType === type.id ? (resolvedScheme === 'dark' ? '#91aee6' : '#293975') : palette.inputIcon}
+                  />
+                  <Text
+                    className={`mt-1 text-xs font-bold ${
+                      selectedType === type.id
+                        ? 'text-primary-dark dark:text-primary'
+                        : 'text-muted-foreground dark:text-muted-foreground-dark'
+                    }`}
+                  >
+                    {type.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
           <View className="w-full">
-            <View className="mb-8">
+            <View className="mb-6">
               <Text className="mb-3 text-[11px] font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
-                Institutional ID
+                Email
               </Text>
               <View className="h-12 flex-row items-center border-b border-border dark:border-border-dark">
                 <MaterialIcons
-                  name="person"
+                  name="email"
                   size={20}
                   color={palette.inputIcon}
                 />
                 <TextInput
-                  placeholder="Enter your student ID"
+                  placeholder={getPlaceholderEmail()}
                   placeholderTextColor={palette.placeholder}
-                  value={institutionId}
-                  onChangeText={setInstitutionId}
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
                   className="ml-3 flex-1 text-base font-medium text-foreground dark:text-foreground-dark"
                 />
               </View>
             </View>
 
-            <View>
+            <View className="mb-6">
               <View className="mb-3 flex-row items-end justify-between">
                 <Text className="text-[11px] font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
-                  Security Code
+                  Password
                 </Text>
                 <Pressable>
                   <Text className="text-[11px] font-bold uppercase tracking-[1px] text-primary-dark dark:text-primary">
-                    Lost Password?
+                    Forgot Password?
                   </Text>
                 </Pressable>
               </View>
@@ -96,10 +174,10 @@ export default function Index() {
                 />
                 <TextInput
                   secureTextEntry={secureText}
-                  placeholder="••••••••"
+                  placeholder="password123"
                   placeholderTextColor={palette.placeholder}
-                  value={securityCode}
-                  onChangeText={setSecurityCode}
+                  value={password}
+                  onChangeText={setPassword}
                   className="ml-3 flex-1 text-base font-medium text-foreground dark:text-foreground-dark"
                 />
                 <Pressable
@@ -115,19 +193,30 @@ export default function Index() {
               </View>
             </View>
 
-            <View className="pt-10">
+            <View className="pt-6">
               <Pressable
-                onPress={() => router.replace("/(tabs)")}
+                onPress={handleLogin}
+                disabled={loading}
                 className="items-center rounded-full bg-primary-dark py-4 active:opacity-85 dark:bg-primary"
               >
-                <Text className="text-base font-bold tracking-wide text-primary-foreground-dark dark:text-primary-foreground">
-                  Sign In
-                </Text>
+                {loading ? (
+                  <ActivityIndicator color={resolvedScheme === 'dark' ? '#1a1f37' : '#f9f5ee'} />
+                ) : (
+                  <Text className="text-base font-bold tracking-wide text-primary-foreground-dark dark:text-primary-foreground">
+                    Sign In
+                  </Text>
+                )}
               </Pressable>
             </View>
           </View>
 
-          <View className="items-center pt-12">
+          <View className="items-center pt-8">
+            <Text className="text-xs text-muted-foreground dark:text-muted-foreground-dark">
+              Test Credentials: password123
+            </Text>
+          </View>
+
+          <View className="items-center pt-8">
             <View className="flex-row gap-1.5">
               <View className="h-2 w-2 rounded-full bg-primary-dark/25 dark:bg-primary/25" />
               <View className="h-2 w-10 rounded-full bg-primary-dark dark:bg-primary" />
