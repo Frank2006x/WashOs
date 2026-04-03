@@ -14,6 +14,12 @@ FROM students
 WHERE user_id = $1
 LIMIT 1;
 
+-- name: GetStudentByID :one
+SELECT *
+FROM students
+WHERE id = $1
+LIMIT 1;
+
 -- name: GetLaundryStaffByUserID :one
 SELECT *
 FROM laundry_staff

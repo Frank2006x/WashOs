@@ -249,9 +249,7 @@ func (h *Handler) Login(c fiber.Ctx) error {
 }
 
 // Login is kept as a backward-compatible alias to student signin.
-func (h *Handler) Login(c fiber.Ctx) error {
-	return h.StudentSignIn(c)
-}
+
 
 func (h *Handler) Refresh(c fiber.Ctx) error {
 	type request struct {

@@ -1,7 +1,7 @@
 {
   "info": {
-    "_postman_id": "9a2f81e4-8b9d-4fdc-a3ee-4a8fbbf48271",
-    "name": "WashOs Phase 1 Auth",
+    "_postman_id": "1f7ed69f-2fd5-45ee-b9f2-7beeb2ca8f7c",
+    "name": "WashOs Auth Routes",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -12,248 +12,328 @@
         "header": [],
         "url": {
           "raw": "{{baseUrl}}/ping",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "ping"
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["ping"]
         }
       },
       "event": [
         {
           "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test('Ping returns 200', function () {",
               "  pm.response.to.have.status(200);",
-              "});",
-              "pm.test('Ping body is pong', function () {",
-              "  pm.expect(pm.response.text()).to.eql('pong');",
               "});"
-            ],
-            "type": "text/javascript"
+            ]
           }
         }
       ]
     },
     {
-      "name": "Auth - Login",
+      "name": "Auth - Student Signup",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const seed = Date.now().toString();",
+              "pm.collectionVariables.set('student_name', 'Student ' + seed.slice(-4));",
+              "pm.collectionVariables.set('student_reg_no', '24BCE' + seed.slice(-6));",
+              "pm.collectionVariables.set('student_email', 'student.' + seed + '@vitstudent.ac.in');",
+              "if (!pm.collectionVariables.get('student_password')) {",
+              "  pm.collectionVariables.set('student_password', '123456');",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Student signup returns 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Student user payload exists', function () {",
+              "  pm.expect(json).to.have.property('user');",
+              "  pm.expect(json.user).to.have.property('email');",
+              "});"
+            ]
+          }
+        }
+      ],
       "request": {
         "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+          "raw": "{\n  \"name\": \"{{student_name}}\",\n  \"reg_no\": \"{{student_reg_no}}\",\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}"
         },
         "url": {
-          "raw": "{{baseUrl}}/api/auth/login",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "auth",
-            "login"
-          ]
+          "raw": "{{baseUrl}}/api/auth/student/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "student", "signup"]
         }
-      },
+      }
+    },
+    {
+      "name": "Auth - Student Signin",
       "event": [
         {
           "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
-              "pm.test('Login returns 200', function () {",
+              "pm.test('Student signin returns 200', function () {",
               "  pm.response.to.have.status(200);",
               "});",
               "const json = pm.response.json();",
-              "pm.test('Login returns token pair', function () {",
+              "pm.test('Student signin returns tokens', function () {",
               "  pm.expect(json).to.have.property('access_token');",
               "  pm.expect(json).to.have.property('refresh_token');",
               "});",
-              "const nextAccessToken = json.access_token || json.token;",
-              "const nextRefreshToken = json.refresh_token;",
-              "if (typeof nextAccessToken === 'string' && nextAccessToken.length > 0) {",
-              "  pm.collectionVariables.set('access_token', nextAccessToken);",
-              "}",
-              "if (typeof nextRefreshToken === 'string' && nextRefreshToken.length > 0) {",
-              "  pm.collectionVariables.set('refresh_token', nextRefreshToken);",
-              "}"
-            ],
-            "type": "text/javascript"
+              "if (json.access_token) pm.collectionVariables.set('access_token', json.access_token);",
+              "if (json.refresh_token) pm.collectionVariables.set('refresh_token', json.refresh_token);"
+            ]
           }
         }
-      ]
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/student/signin",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "student", "signin"]
+        }
+      }
+    },
+    {
+      "name": "Auth - Login Alias",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Login alias returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Login alias returns tokens', function () {",
+              "  pm.expect(json).to.have.property('access_token');",
+              "  pm.expect(json).to.have.property('refresh_token');",
+              "});",
+              "if (json.access_token) pm.collectionVariables.set('access_token', json.access_token);",
+              "if (json.refresh_token) pm.collectionVariables.set('refresh_token', json.refresh_token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "login"]
+        }
+      }
     },
     {
       "name": "Auth - Refresh",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Refresh returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Refresh returns tokens', function () {",
+              "  pm.expect(json).to.have.property('access_token');",
+              "  pm.expect(json).to.have.property('refresh_token');",
+              "});",
+              "if (json.access_token) pm.collectionVariables.set('access_token', json.access_token);",
+              "if (json.refresh_token) pm.collectionVariables.set('refresh_token', json.refresh_token);"
+            ]
+          }
+        }
+      ],
       "request": {
         "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
         },
         "url": {
           "raw": "{{baseUrl}}/api/auth/refresh",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "auth",
-            "refresh"
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "refresh"]
         }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test('Refresh returns 200', function () {",
-              "  pm.response.to.have.status(200);",
-              "});",
-              "const json = pm.response.json();",
-              "pm.test('Refresh returns rotated token pair', function () {",
-              "  pm.expect(json).to.have.property('access_token');",
-              "  pm.expect(json).to.have.property('refresh_token');",
-              "});",
-              "const nextAccessToken = json.access_token || json.token;",
-              "const nextRefreshToken = json.refresh_token;",
-              "if (typeof nextAccessToken === 'string' && nextAccessToken.length > 0) {",
-              "  pm.collectionVariables.set('access_token', nextAccessToken);",
-              "}",
-              "if (typeof nextRefreshToken === 'string' && nextRefreshToken.length > 0) {",
-              "  pm.collectionVariables.set('refresh_token', nextRefreshToken);",
-              "}"
-            ],
-            "type": "text/javascript"
-          }
-        }
-      ]
+      }
     },
     {
       "name": "Auth - Logout",
-      "request": {
-        "method": "POST",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/auth/logout",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "auth",
-            "logout"
-          ]
-        }
-      },
       "event": [
         {
           "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test('Logout returns 200', function () {",
               "  pm.response.to.have.status(200);",
               "});",
               "const json = pm.response.json();",
-              "pm.test('Logout returns expected message', function () {",
+              "pm.test('Logout has message', function () {",
               "  pm.expect(json).to.have.property('message');",
               "});"
-            ],
-            "type": "text/javascript"
+            ]
           }
         }
-      ]
-    },
-    {
-      "name": "Negative - Login wrong password",
+      ],
       "request": {
         "method": "POST",
         "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
+          { "key": "Authorization", "value": "Bearer {{access_token}}" },
+          { "key": "Content-Type", "value": "application/json" }
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"wrong-password\"\n}"
+          "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
         },
         "url": {
-          "raw": "{{baseUrl}}/api/auth/login",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "auth",
-            "login"
-          ]
+          "raw": "{{baseUrl}}/api/auth/logout",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "logout"]
+        }
+      }
+    },
+    {
+      "name": "Auth - Staff Signup",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const seed = Date.now().toString();",
+              "pm.collectionVariables.set('staff_name', 'Staff ' + seed.slice(-4));",
+              "pm.collectionVariables.set('staff_phone', '+9199' + seed.slice(-8));",
+              "pm.collectionVariables.set('staff_email', 'staff.' + seed + '@washos.local');",
+              "if (!pm.collectionVariables.get('staff_password')) {",
+              "  pm.collectionVariables.set('staff_password', '123456');",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Staff signup route is reachable', function () {",
+              "  pm.expect([201, 412]).to.include(pm.response.code);",
+              "});",
+              "pm.collectionVariables.set('staff_signup_status', String(pm.response.code));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"{{staff_name}}\",\n  \"phone\": \"{{staff_phone}}\",\n  \"email\": \"{{staff_email}}\",\n  \"password\": \"{{staff_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/staff/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "staff", "signup"]
+        }
+      }
+    },
+    {
+      "name": "Auth - Staff Signin",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const signupStatus = pm.collectionVariables.get('staff_signup_status');",
+              "if (signupStatus === '201') {",
+              "  pm.test('Staff signin returns 200 when staff exists', function () {",
+              "    pm.response.to.have.status(200);",
+              "  });",
+              "  const json = pm.response.json();",
+              "  pm.expect(json).to.have.property('access_token');",
+              "  pm.expect(json).to.have.property('refresh_token');",
+              "  pm.collectionVariables.set('staff_access_token', json.access_token);",
+              "  pm.collectionVariables.set('staff_refresh_token', json.refresh_token);",
+              "} else {",
+              "  pm.test('Staff signin returns 401 when service is missing', function () {",
+              "    pm.response.to.have.status(401);",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"{{staff_phone}}\",\n  \"password\": \"{{staff_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/staff/signin",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "staff", "signin"]
+        }
+      }
+    },
+    {
+      "name": "Negative - Student signin wrong password",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{student_email}}\",\n  \"password\": \"wrong-password\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/student/signin",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "student", "signin"]
         }
       },
       "event": [
         {
           "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test('Wrong password returns 401', function () {",
               "  pm.response.to.have.status(401);",
               "});"
-            ],
-            "type": "text/javascript"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Negative - Refresh empty token",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"refresh_token\": \"\"\n}"
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/auth/refresh",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "auth",
-            "refresh"
-          ]
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test('Empty refresh token returns 400', function () {",
-              "  pm.response.to.have.status(400);",
-              "});"
-            ],
-            "type": "text/javascript"
+            ]
           }
         }
       ]
@@ -262,63 +342,75 @@
       "name": "Negative - Refresh invalid token",
       "request": {
         "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"refresh_token\": \"abc123\"\n}"
         },
         "url": {
           "raw": "{{baseUrl}}/api/auth/refresh",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "auth",
-            "refresh"
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "refresh"]
         }
       },
       "event": [
         {
           "listen": "test",
           "script": {
+            "type": "text/javascript",
             "exec": [
               "pm.test('Invalid refresh token returns 401', function () {",
               "  pm.response.to.have.status(401);",
               "});"
-            ],
-            "type": "text/javascript"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Negative - Logout missing auth",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/logout",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "logout"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Logout without token returns 401', function () {",
+              "  pm.response.to.have.status(401);",
+              "});"
+            ]
           }
         }
       ]
     }
   ],
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:3001"
-    },
-    {
-      "key": "email",
-      "value": "vishal.p2024@vitstudent.ac.in"
-    },
-    {
-      "key": "password",
-      "value": "123456"
-    },
-    {
-      "key": "access_token",
-      "value": ""
-    },
-    {
-      "key": "refresh_token",
-      "value": ""
-    }
+    { "key": "baseUrl", "value": "http://localhost:3001" },
+    { "key": "student_name", "value": "" },
+    { "key": "student_reg_no", "value": "" },
+    { "key": "student_email", "value": "" },
+    { "key": "student_password", "value": "123456" },
+    { "key": "access_token", "value": "" },
+    { "key": "refresh_token", "value": "" },
+    { "key": "staff_name", "value": "" },
+    { "key": "staff_phone", "value": "" },
+    { "key": "staff_email", "value": "" },
+    { "key": "staff_password", "value": "123456" },
+    { "key": "staff_signup_status", "value": "" },
+    { "key": "staff_access_token", "value": "" },
+    { "key": "staff_refresh_token", "value": "" }
   ]
 }

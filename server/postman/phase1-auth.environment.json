@@ -1,5 +1,5 @@
 {
-  "id": "f2f7e810-3905-4c1a-95f9-8d472b4dce8d",
+  "id": "dc2c6fd1-c385-49c1-9a4f-01fbf0ec2ad8",
   "name": "WashOs Local",
   "values": [
     {
@@ -9,13 +9,25 @@
       "enabled": true
     },
     {
-      "key": "email",
-      "value": "vishal.p2024@vitstudent.ac.in",
+      "key": "student_name",
+      "value": "",
       "type": "default",
       "enabled": true
     },
     {
-      "key": "password",
+      "key": "student_reg_no",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "student_email",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "student_password",
       "value": "123456",
       "type": "default",
       "enabled": true
@@ -28,6 +40,48 @@
     },
     {
       "key": "refresh_token",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_name",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_phone",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_email",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_password",
+      "value": "123456",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_signup_status",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_access_token",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_refresh_token",
       "value": "",
       "type": "default",
       "enabled": true

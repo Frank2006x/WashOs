@@ -633,6 +633,28 @@ func (q *Queries) GetStudentBookings(ctx context.Context, arg GetStudentBookings
 	return items, nil
 }
 
+const getStudentByID = `-- name: GetStudentByID :one
+SELECT id, user_id, reg_no, name, block, created_at, updated_at
+FROM students
+WHERE id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetStudentByID(ctx context.Context, id pgtype.UUID) (Student, error) {
+	row := q.db.QueryRow(ctx, getStudentByID, id)
+	var i Student
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.RegNo,
+		&i.Name,
+		&i.Block,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getStudentByUserID = `-- name: GetStudentByUserID :one
 SELECT id, user_id, reg_no, name, block, created_at, updated_at
 FROM students

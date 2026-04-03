@@ -38,6 +38,7 @@ type Querier interface {
 	GetRunningMachineRunByMachineID(ctx context.Context, machineID pgtype.UUID) (MachineRun, error)
 	GetStudentBagByStudentID(ctx context.Context, studentID pgtype.UUID) (Bag, error)
 	GetStudentBookings(ctx context.Context, arg GetStudentBookingsParams) ([]Booking, error)
+	GetStudentByID(ctx context.Context, id pgtype.UUID) (Student, error)
 	GetStudentByUserID(ctx context.Context, userID pgtype.UUID) (Student, error)
 	// =========================
 	// Auth and Profile Queries
