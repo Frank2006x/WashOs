@@ -225,4 +225,48 @@ export const authService = {
   },
 };
 
+// ─── Student API ────────────────────────────────────────────────────────────
+
+export type BagResponse = {
+  bag_id: string;
+  student_id: string;
+  reg_no: string;
+  name: string;
+  block?: string;
+  qr_version: number;
+  qr_payload: string; // JSON string ready to render as QR
+  is_revoked: boolean;
+  last_rotated_at?: string;
+};
+
+export const studentService = {
+  // GET /api/student/me/bag — fetch bag only if it exists (returns null if none)
+  async getMyBag(): Promise<BagResponse | null> {
+    try {
+      const res = await api.get<BagResponse>("/api/student/me/bag");
+      return res.data;
+    } catch (e: any) {
+      if (e?.response?.status === 404) return null;
+      throw e;
+    }
+  },
+
+  // POST /api/student/me/bag/init — generate QR for the first time (idempotent)
+  async initMyBag(): Promise<BagResponse> {
+    const res = await api.post<BagResponse>("/api/student/me/bag/init");
+    return res.data;
+  },
+
+  // POST /api/student/me/bag/rotate — rotates the QR version
+  async rotateMyQR(): Promise<BagResponse> {
+    const res = await api.post<BagResponse>("/api/student/me/bag/rotate");
+    return res.data;
+  },
+
+  // PATCH /api/student/me/block — sets hostel block
+  async updateMyBlock(block: string): Promise<void> {
+    await api.patch("/api/student/me/block", { block });
+  },
+};
+
 export default api;

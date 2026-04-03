@@ -339,6 +339,7 @@ type Student struct {
 	UserID    pgtype.UUID        `json:"user_id"`
 	RegNo     string             `json:"reg_no"`
 	Name      string             `json:"name"`
+	Block     pgtype.Text        `json:"block"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }

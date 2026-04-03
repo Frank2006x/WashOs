@@ -139,3 +139,12 @@ func ParseAndValidateAccessToken(tokenStr string) (string, error) {
 func ParseAndValidateRefreshToken(tokenStr string) (string, error) {
 	return parseAndValidateToken(tokenStr, Refresh)
 }
+
+func GenerateQRPayload(claims map[string]interface{}) (string, error) {
+	jwtClaims := jwt.MapClaims{}
+	for k, v := range claims {
+		jwtClaims[k] = v
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwtClaims)
+	return token.SignedString(jwtSecret())
+}

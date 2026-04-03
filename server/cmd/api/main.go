@@ -42,6 +42,7 @@ func main() {
 	Handler := handler.NewHandler(queries)
 
 	router.SetupAuthRoutes(app, Handler)
+	router.SetupStudentRoutes(app, Handler)
 
 	app.Get("/ping", func(c fiber.Ctx) error {
 		return c.SendString("pong")
