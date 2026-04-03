@@ -1,11 +1,9 @@
 package auth
 
 import (
-	"os"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 func AuthMiddleware(c fiber.Ctx) error {
@@ -15,23 +13,17 @@ func AuthMiddleware(c fiber.Ctx) error {
 		return fiber.ErrUnauthorized
 	}
 
-	tokenStr := strings.Split(authHeader, " ")
-	if len(tokenStr) != 2 {
+	parts := strings.Fields(authHeader)
+	if len(parts) != 2 {
 		return fiber.ErrUnauthorized
 	}
 
-	token, err := jwt.Parse(tokenStr[1], func(t *jwt.Token) (interface{}, error) {
-		return []byte(os.Getenv("JWT_SECRET")), nil
-	})
-
-	if err != nil || !token.Valid {
+	userID, err := ParseAndValidateAccessToken(parts[1])
+	if err != nil {
 		return fiber.ErrUnauthorized
 	}
 
-	claims := token.Claims.(jwt.MapClaims)
-
-	
-	c.Locals("user_id", claims["user_id"])
+	c.Locals("user_id", userID)
 
 	return c.Next()
 }
