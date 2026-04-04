@@ -45,6 +45,8 @@ func SetupPhase2Routes(app *fiber.App, h *handler.Handler) {
 	notificationGroup.Get("/my", h.ListMyNotifications)
 	notificationGroup.Get("/my/unread", h.ListMyUnreadNotifications)
 	notificationGroup.Patch("/:id/read", h.MarkMyNotificationRead)
+	notificationGroup.Post("/push-token", h.RegisterMyPushToken)
+	notificationGroup.Delete("/push-token", h.DeactivateMyPushToken)
 
 	adminGroup := apiGroup.Group("/admin", auth.AuthMiddleware)
 	adminGroup.Get("/bookings/overview", h.AdminBookingsOverview)

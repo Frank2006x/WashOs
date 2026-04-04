@@ -1,8 +1,12 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -51,7 +55,7 @@ func (h *Handler) logActionRejected(
 	meta["reason"] = reason
 	metaBytes, _ := json.Marshal(meta)
 
-	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+	h.createWorkflowEventWithLog(c, dbgen.CreateWorkflowEventParams{
 		BookingID:         bookingID,
 		BagID:             bagID,
 		StudentID:         studentID,
@@ -59,7 +63,120 @@ func (h *Handler) logActionRejected(
 		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
 		EventType:         dbgen.WorkflowEventTypeActionRejected,
 		Metadata:          metaBytes,
-	})
+	}, "action_rejected")
+}
+
+func (h *Handler) createWorkflowEventWithLog(c fiber.Ctx, params dbgen.CreateWorkflowEventParams, source string) {
+	if _, err := h.Queries.CreateWorkflowEvent(c.Context(), params); err != nil {
+		log.Printf(
+			"create workflow event failed: source=%s event_type=%s booking_id=%s bag_id=%s student_id=%s err=%v",
+			source,
+			params.EventType,
+			pgUUIDToStr(params.BookingID),
+			pgUUIDToStr(params.BagID),
+			pgUUIDToStr(params.StudentID),
+			err,
+		)
+	}
+}
+
+func parseJSONBytes(raw []byte) map[string]interface{} {
+	if len(raw) == 0 {
+		return map[string]interface{}{}
+	}
+
+	decoded := map[string]interface{}{}
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		return map[string]interface{}{"raw": string(raw)}
+	}
+	return decoded
+}
+
+func notificationResponse(n dbgen.Notification) fiber.Map {
+	return fiber.Map{
+		"id":                n.ID,
+		"recipient_user_id": n.RecipientUserID,
+		"booking_id":        n.BookingID,
+		"title":             n.Title,
+		"message":           n.Message,
+		"payload":           parseJSONBytes(n.Payload),
+		"is_read":           n.IsRead,
+		"read_at":           n.ReadAt,
+		"sent_at":           n.SentAt,
+		"created_at":        n.CreatedAt,
+	}
+}
+
+func (h *Handler) sendExpoPush(token, title, message string, data map[string]interface{}) {
+	token = strings.TrimSpace(token)
+	if token == "" || !strings.HasPrefix(token, "ExponentPushToken[") {
+		return
+	}
+
+	payload := map[string]interface{}{
+		"to":    token,
+		"title": title,
+		"body":  message,
+		"sound": "default",
+		"data":  data,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("push payload marshal failed: token=%s err=%v", token, err)
+		return
+	}
+
+	pushURL := strings.TrimSpace(os.Getenv("EXPO_PUSH_API_URL"))
+	if pushURL == "" {
+		pushURL = "https://exp.host/--/api/v2/push/send"
+	}
+
+	resp, err := http.Post(pushURL, "application/json", bytes.NewReader(body))
+	if err != nil {
+		log.Printf("push send failed: token=%s err=%v", token, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		log.Printf("push send non-2xx: token=%s status=%d", token, resp.StatusCode)
+	}
+}
+
+func (h *Handler) dispatchReadyNotification(c fiber.Ctx, booking dbgen.Booking, rowNo string, source string) {
+	student, sErr := h.Queries.GetStudentByID(c.Context(), booking.StudentID)
+	if sErr != nil {
+		log.Printf("ready notification skipped: source=%s booking=%s student lookup err=%v", source, pgUUIDToStr(booking.ID), sErr)
+		return
+	}
+
+	payloadMap := map[string]interface{}{
+		"booking_id": pgUUIDToStr(booking.ID),
+		"status":     booking.Status,
+		"row_no":     rowNo,
+	}
+	payload, _ := json.Marshal(payloadMap)
+
+	if _, nErr := h.Queries.CreateNotification(c.Context(), dbgen.CreateNotificationParams{
+		RecipientUserID: student.UserID,
+		BookingID:       pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
+		Title:           "Laundry Ready for Pickup",
+		Message:         "Your laundry is ready for pickup.",
+		Payload:         payload,
+	}); nErr != nil {
+		log.Printf("create notification failed: source=%s booking=%s student_user=%s err=%v", source, pgUUIDToStr(booking.ID), pgUUIDToStr(student.UserID), nErr)
+		return
+	}
+
+	pushTokens, pErr := h.Queries.ListActivePushTokensByUser(c.Context(), student.UserID)
+	if pErr != nil {
+		log.Printf("list push tokens failed: source=%s booking=%s student_user=%s err=%v", source, pgUUIDToStr(booking.ID), pgUUIDToStr(student.UserID), pErr)
+		return
+	}
+
+	for _, pushToken := range pushTokens {
+		h.sendExpoPush(pushToken.Token, "Laundry Ready for Pickup", "Your laundry is ready for pickup.", payloadMap)
+	}
 }
 
 func formatHHMM(minutes int) string {
@@ -287,7 +404,7 @@ func (h *Handler) IntakeScan(c fiber.Ctx) error {
 				"qr_version": version,
 				"idempotent": true,
 			})
-			_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+			h.createWorkflowEventWithLog(c, dbgen.CreateWorkflowEventParams{
 				BookingID:         pgtype.UUID{Bytes: activeBooking.ID.Bytes, Valid: true},
 				BagID:             bag.ID,
 				StudentID:         student.ID,
@@ -295,7 +412,7 @@ func (h *Handler) IntakeScan(c fiber.Ctx) error {
 				TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
 				EventType:         dbgen.WorkflowEventTypeReceived,
 				Metadata:          metadata,
-			})
+			}, "intake_scan_idempotent")
 
 			return c.Status(fiber.StatusOK).JSON(fiber.Map{
 				"message": "intake already recorded",
@@ -349,7 +466,7 @@ func (h *Handler) IntakeScan(c fiber.Ctx) error {
 		"source":     "scan_intake",
 		"qr_version": version,
 	})
-	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+	h.createWorkflowEventWithLog(c, dbgen.CreateWorkflowEventParams{
 		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
 		BagID:             bag.ID,
 		StudentID:         student.ID,
@@ -357,7 +474,7 @@ func (h *Handler) IntakeScan(c fiber.Ctx) error {
 		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
 		EventType:         dbgen.WorkflowEventTypeReceived,
 		Metadata:          metadata,
-	})
+	}, "intake_scan")
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message": "bag intake recorded",
@@ -417,7 +534,7 @@ func (h *Handler) WashCompleteScan(c fiber.Ctx) error {
 			"source":     "scan_wash_complete",
 			"qr_version": version,
 		})
-		_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+		h.createWorkflowEventWithLog(c, dbgen.CreateWorkflowEventParams{
 			BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
 			BagID:             bag.ID,
 			StudentID:         student.ID,
@@ -425,7 +542,7 @@ func (h *Handler) WashCompleteScan(c fiber.Ctx) error {
 			TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
 			EventType:         dbgen.WorkflowEventTypeWashFinished,
 			Metadata:          metadata,
-		})
+		}, "wash_complete_scan")
 
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"message": "bag marked wash_done",
@@ -438,7 +555,7 @@ func (h *Handler) WashCompleteScan(c fiber.Ctx) error {
 			"idempotent": true,
 			"status":     booking.Status,
 		})
-		_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+		h.createWorkflowEventWithLog(c, dbgen.CreateWorkflowEventParams{
 			BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
 			BagID:             bag.ID,
 			StudentID:         student.ID,
@@ -446,7 +563,7 @@ func (h *Handler) WashCompleteScan(c fiber.Ctx) error {
 			TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
 			EventType:         dbgen.WorkflowEventTypeWashFinished,
 			Metadata:          metadata,
-		})
+		}, "wash_complete_scan_idempotent")
 
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"message": "booking already marked as washed",
@@ -615,7 +732,7 @@ func (h *Handler) WashStartScan(c fiber.Ctx) error {
 	}
 
 	metadata, _ := json.Marshal(map[string]interface{}{"source": "scan_wash_start", "qr_version": version, "machine_code": machine.Code})
-	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+	h.createWorkflowEventWithLog(c, dbgen.CreateWorkflowEventParams{
 		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
 		BagID:             bag.ID,
 		StudentID:         student.ID,
@@ -624,7 +741,7 @@ func (h *Handler) WashStartScan(c fiber.Ctx) error {
 		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
 		EventType:         dbgen.WorkflowEventTypeWashStarted,
 		Metadata:          metadata,
-	})
+	}, "wash_start_scan")
 
 	return c.JSON(fiber.Map{"message": "wash started", "booking": booking, "machine": machine})
 }
@@ -699,7 +816,7 @@ func (h *Handler) WashFinishScan(c fiber.Ctx) error {
 	}
 
 	metadata, _ := json.Marshal(map[string]interface{}{"source": "scan_wash_finish", "qr_version": version, "machine_code": machine.Code})
-	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+	h.createWorkflowEventWithLog(c, dbgen.CreateWorkflowEventParams{
 		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
 		BagID:             bag.ID,
 		StudentID:         student.ID,
@@ -708,7 +825,7 @@ func (h *Handler) WashFinishScan(c fiber.Ctx) error {
 		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
 		EventType:         dbgen.WorkflowEventTypeWashFinished,
 		Metadata:          metadata,
-	})
+	}, "wash_finish_scan")
 
 	return c.JSON(fiber.Map{"message": "wash finished", "booking": booking, "machine": machine})
 }
@@ -780,7 +897,7 @@ func (h *Handler) DryStartScan(c fiber.Ctx) error {
 	}
 
 	metadata, _ := json.Marshal(map[string]interface{}{"source": "scan_dry_start", "qr_version": version, "machine_code": machine.Code})
-	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+	h.createWorkflowEventWithLog(c, dbgen.CreateWorkflowEventParams{
 		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
 		BagID:             bag.ID,
 		StudentID:         student.ID,
@@ -789,7 +906,7 @@ func (h *Handler) DryStartScan(c fiber.Ctx) error {
 		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
 		EventType:         dbgen.WorkflowEventTypeDryStarted,
 		Metadata:          metadata,
-	})
+	}, "dry_start_scan")
 
 	return c.JSON(fiber.Map{"message": "dry started", "booking": booking, "machine": machine})
 }
@@ -864,7 +981,7 @@ func (h *Handler) DryFinishScan(c fiber.Ctx) error {
 	}
 
 	metadata, _ := json.Marshal(map[string]interface{}{"source": "scan_dry_finish", "qr_version": version, "machine_code": machine.Code})
-	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+	h.createWorkflowEventWithLog(c, dbgen.CreateWorkflowEventParams{
 		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
 		BagID:             bag.ID,
 		StudentID:         student.ID,
@@ -873,7 +990,7 @@ func (h *Handler) DryFinishScan(c fiber.Ctx) error {
 		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
 		EventType:         dbgen.WorkflowEventTypeDryFinished,
 		Metadata:          metadata,
-	})
+	}, "dry_finish_scan")
 
 	return c.JSON(fiber.Map{"message": "dry finished", "booking": booking, "machine": machine})
 }
@@ -928,7 +1045,7 @@ func (h *Handler) ReadyScan(c fiber.Ctx) error {
 	}
 
 	metadata, _ := json.Marshal(map[string]interface{}{"source": "scan_ready", "qr_version": version, "row_no": body.RowNo})
-	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+	h.createWorkflowEventWithLog(c, dbgen.CreateWorkflowEventParams{
 		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
 		BagID:             bag.ID,
 		StudentID:         student.ID,
@@ -936,18 +1053,9 @@ func (h *Handler) ReadyScan(c fiber.Ctx) error {
 		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
 		EventType:         dbgen.WorkflowEventTypeMarkedReady,
 		Metadata:          metadata,
-	})
+	}, "ready_scan")
 
-	if studentRecord, sErr := h.Queries.GetStudentByID(c.Context(), booking.StudentID); sErr == nil {
-		payload, _ := json.Marshal(map[string]interface{}{"booking_id": pgUUIDToStr(booking.ID), "status": booking.Status, "row_no": body.RowNo})
-		_, _ = h.Queries.CreateNotification(c.Context(), dbgen.CreateNotificationParams{
-			RecipientUserID: studentRecord.UserID,
-			BookingID:       pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
-			Title:           "Laundry Ready for Pickup",
-			Message:         "Your laundry is ready for pickup.",
-			Payload:         payload,
-		})
-	}
+	h.dispatchReadyNotification(c, booking, body.RowNo, "ready_scan")
 
 	return c.JSON(fiber.Map{"message": "booking marked ready_for_pickup", "booking": booking})
 }
@@ -1158,7 +1266,30 @@ func (h *Handler) GetBookingEvents(c fiber.Ctx) error {
 		events = []dbgen.WorkflowEvent{}
 	}
 
-	return c.JSON(fiber.Map{"events": events})
+	eventResponses := make([]fiber.Map, 0, len(events))
+	for _, ev := range events {
+		metadata := map[string]interface{}{}
+		if len(ev.Metadata) > 0 {
+			if err := json.Unmarshal(ev.Metadata, &metadata); err != nil {
+				metadata = map[string]interface{}{"raw": string(ev.Metadata)}
+			}
+		}
+
+		eventResponses = append(eventResponses, fiber.Map{
+			"id":                   ev.ID,
+			"booking_id":           ev.BookingID,
+			"bag_id":               ev.BagID,
+			"student_id":           ev.StudentID,
+			"machine_id":           ev.MachineID,
+			"triggered_by_user_id": ev.TriggeredByUserID,
+			"triggered_role":       ev.TriggeredRole,
+			"event_type":           ev.EventType,
+			"metadata":             metadata,
+			"created_at":           ev.CreatedAt,
+		})
+	}
+
+	return c.JSON(fiber.Map{"events": eventResponses})
 }
 
 // POST /api/bookings/:id/wash-complete
@@ -1197,7 +1328,7 @@ func (h *Handler) MarkBookingWashComplete(c fiber.Ctx) error {
 		}
 
 		metadata, _ := json.Marshal(map[string]interface{}{"source": "booking_action"})
-		_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+		h.createWorkflowEventWithLog(c, dbgen.CreateWorkflowEventParams{
 			BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
 			BagID:             booking.BagID,
 			StudentID:         booking.StudentID,
@@ -1205,7 +1336,7 @@ func (h *Handler) MarkBookingWashComplete(c fiber.Ctx) error {
 			TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
 			EventType:         dbgen.WorkflowEventTypeWashFinished,
 			Metadata:          metadata,
-		})
+		}, "mark_booking_wash_complete")
 
 		return c.JSON(fiber.Map{"message": "booking marked wash_done", "booking": booking})
 	case dbgen.BookingStatusWashDone, dbgen.BookingStatusDrying, dbgen.BookingStatusDryDone, dbgen.BookingStatusReadyForPickup, dbgen.BookingStatusCollected:
@@ -1268,7 +1399,7 @@ func (h *Handler) MarkBookingReady(c fiber.Ctx) error {
 	}
 
 	metadata, _ := json.Marshal(map[string]interface{}{"source": "booking_action", "row_no": body.RowNo})
-	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+	h.createWorkflowEventWithLog(c, dbgen.CreateWorkflowEventParams{
 		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
 		BagID:             booking.BagID,
 		StudentID:         booking.StudentID,
@@ -1276,18 +1407,9 @@ func (h *Handler) MarkBookingReady(c fiber.Ctx) error {
 		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleLaundryStaff, Valid: true},
 		EventType:         dbgen.WorkflowEventTypeMarkedReady,
 		Metadata:          metadata,
-	})
+	}, "mark_booking_ready")
 
-	if student, sErr := h.Queries.GetStudentByID(c.Context(), booking.StudentID); sErr == nil {
-		payload, _ := json.Marshal(map[string]interface{}{"booking_id": pgUUIDToStr(booking.ID), "status": booking.Status})
-		_, _ = h.Queries.CreateNotification(c.Context(), dbgen.CreateNotificationParams{
-			RecipientUserID: student.UserID,
-			BookingID:       pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
-			Title:           "Laundry Ready for Pickup",
-			Message:         "Your laundry is ready for pickup.",
-			Payload:         payload,
-		})
-	}
+	h.dispatchReadyNotification(c, booking, body.RowNo, "mark_booking_ready")
 
 	return c.JSON(fiber.Map{"message": "booking marked ready_for_pickup", "booking": booking})
 }
@@ -1353,7 +1475,7 @@ func (h *Handler) PickupVerifyScan(c fiber.Ctx) error {
 		"action":   "pickup_verify_scan",
 		"verified": true,
 	})
-	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+	h.createWorkflowEventWithLog(c, dbgen.CreateWorkflowEventParams{
 		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
 		BagID:             booking.BagID,
 		StudentID:         booking.StudentID,
@@ -1361,7 +1483,7 @@ func (h *Handler) PickupVerifyScan(c fiber.Ctx) error {
 		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleStudent, Valid: true},
 		EventType:         dbgen.WorkflowEventTypeActionRejected,
 		Metadata:          metadata,
-	})
+	}, "pickup_verify_scan")
 
 	return c.JSON(fiber.Map{
 		"verified": true,
@@ -1408,7 +1530,7 @@ func (h *Handler) CollectBooking(c fiber.Ctx) error {
 			"action":     "collect_booking",
 			"idempotent": true,
 		})
-		_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+		h.createWorkflowEventWithLog(c, dbgen.CreateWorkflowEventParams{
 			BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
 			BagID:             booking.BagID,
 			StudentID:         booking.StudentID,
@@ -1416,7 +1538,7 @@ func (h *Handler) CollectBooking(c fiber.Ctx) error {
 			TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleStudent, Valid: true},
 			EventType:         dbgen.WorkflowEventTypeCollected,
 			Metadata:          metadata,
-		})
+		}, "collect_booking_idempotent")
 
 		return c.JSON(fiber.Map{
 			"message": "booking already collected",
@@ -1453,7 +1575,7 @@ func (h *Handler) CollectBooking(c fiber.Ctx) error {
 	metadata, _ := json.Marshal(map[string]interface{}{
 		"source": "student_collect",
 	})
-	_, _ = h.Queries.CreateWorkflowEvent(c.Context(), dbgen.CreateWorkflowEventParams{
+	h.createWorkflowEventWithLog(c, dbgen.CreateWorkflowEventParams{
 		BookingID:         pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
 		BagID:             booking.BagID,
 		StudentID:         booking.StudentID,
@@ -1461,7 +1583,7 @@ func (h *Handler) CollectBooking(c fiber.Ctx) error {
 		TriggeredRole:     dbgen.NullUserRole{UserRole: dbgen.UserRoleStudent, Valid: true},
 		EventType:         dbgen.WorkflowEventTypeCollected,
 		Metadata:          metadata,
-	})
+	}, "collect_booking")
 
 	return c.JSON(fiber.Map{
 		"message": "booking collected",
@@ -1493,7 +1615,12 @@ func (h *Handler) ListMyNotifications(c fiber.Ctx) error {
 		notifications = []dbgen.Notification{}
 	}
 
-	return c.JSON(fiber.Map{"notifications": notifications})
+	response := make([]fiber.Map, 0, len(notifications))
+	for _, n := range notifications {
+		response = append(response, notificationResponse(n))
+	}
+
+	return c.JSON(fiber.Map{"notifications": response})
 }
 
 // GET /api/notifications/my/unread
@@ -1520,7 +1647,12 @@ func (h *Handler) ListMyUnreadNotifications(c fiber.Ctx) error {
 		notifications = []dbgen.Notification{}
 	}
 
-	return c.JSON(fiber.Map{"notifications": notifications})
+	response := make([]fiber.Map, 0, len(notifications))
+	for _, n := range notifications {
+		response = append(response, notificationResponse(n))
+	}
+
+	return c.JSON(fiber.Map{"notifications": response})
 }
 
 // PATCH /api/notifications/:id/read
@@ -1551,7 +1683,67 @@ func (h *Handler) MarkMyNotificationRead(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to mark notification as read")
 	}
 
-	return c.JSON(fiber.Map{"notification": notification})
+	return c.JSON(fiber.Map{"notification": notificationResponse(notification)})
+}
+
+// POST /api/notifications/push-token
+func (h *Handler) RegisterMyPushToken(c fiber.Ctx) error {
+	userID, err := currentUserIDFromCtx(c)
+	if err != nil {
+		return err
+	}
+
+	var body struct {
+		Token      string `json:"token"`
+		Platform   string `json:"platform"`
+		DeviceName string `json:"device_name"`
+	}
+	if err := c.Bind().Body(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	body.Token = strings.TrimSpace(body.Token)
+	body.Platform = strings.ToLower(strings.TrimSpace(body.Platform))
+	body.DeviceName = strings.TrimSpace(body.DeviceName)
+
+	if body.Token == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "token is required")
+	}
+	if body.Platform != "ios" && body.Platform != "android" && body.Platform != "web" {
+		return fiber.NewError(fiber.StatusBadRequest, "platform must be ios, android, or web")
+	}
+
+	pushToken, err := h.Queries.UpsertPushToken(c.Context(), dbgen.UpsertPushTokenParams{
+		UserID:     userID,
+		Token:      body.Token,
+		Platform:   body.Platform,
+		DeviceName: pgtype.Text{String: body.DeviceName, Valid: body.DeviceName != ""},
+	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to register push token")
+	}
+
+	return c.JSON(fiber.Map{"push_token": pushToken})
+}
+
+// DELETE /api/notifications/push-token
+func (h *Handler) DeactivateMyPushToken(c fiber.Ctx) error {
+	var body struct {
+		Token string `json:"token"`
+	}
+	if err := c.Bind().Body(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+	body.Token = strings.TrimSpace(body.Token)
+	if body.Token == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "token is required")
+	}
+
+	if err := h.Queries.DeactivatePushToken(c.Context(), body.Token); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to deactivate push token")
+	}
+
+	return c.JSON(fiber.Map{"message": "push token deactivated"})
 }
 
 // GET /api/admin/bookings/overview (optional)

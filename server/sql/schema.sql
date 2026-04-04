@@ -234,11 +234,32 @@ CREATE TABLE queries (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+
 CREATE TABLE query_replies (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   query_id UUID NOT NULL REFERENCES queries(id) ON DELETE CASCADE,
   replied_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   message TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE laundry_cycle_periods (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  year INT NOT NULL,
+  month INT NOT NULL,
+  part INT NOT NULL CHECK (part BETWEEN 1 AND 4),
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (year, month, part)
+);
+
+CREATE TABLE laundry_daily_slots (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  cycle_id UUID NOT NULL REFERENCES laundry_cycle_periods(id) ON DELETE CASCADE,
+  date DATE NOT NULL UNIQUE,
+  start_floor INT NOT NULL,
+  end_floor INT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

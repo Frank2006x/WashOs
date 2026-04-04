@@ -22,7 +22,7 @@ export interface QRScannerProps {
   /** Title displayed at the top of the scanner (e.g. "Drop-off Scan") */
   title: string;
   /** Callback fired with parsed data (or raw string if not JSON) after a scan */
-  onScan?: (data: any) => void;
+  onScan?: (data: any) => void | Promise<void>;
   /** When false, hides raw/parsed payload details and only shows scan status. */
   showScanDetails?: boolean;
   /**
@@ -32,7 +32,7 @@ export interface QRScannerProps {
   singleScan?: boolean;
 }
 
-type ScanState = "loading" | "denied" | "scanning" | "success" | "error";
+type ScanState = "loading" | "denied" | "scanning" | "processing" | "success" | "error";
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -54,7 +54,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
   );
   const [scannedData, setScannedData] = useState<any>(null);
   const [rawValue, setRawValue] = useState<string>("");
-  const [parseError, setParseError] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   const hasScanned = useRef(false);
   const flashAnim = useRef(new Animated.Value(0)).current;
@@ -72,27 +72,26 @@ const QRScanner: React.FC<QRScannerProps> = ({
     }
   }, [permission]);
 
-  // ── Flash animation on scan success ─────────────────────────────────────
-  const triggerFlash = useCallback(() => {
+  const [flashColor, setFlashColor] = useState<string>(colors.success);
+
+  // ── Flash animation on scan success/error ──────────────────────────────
+  const triggerFlash = useCallback((type: "success" | "error" = "success") => {
+    setFlashColor(type === "error" ? colors.error : colors.success);
     flashAnim.setValue(1);
     Animated.timing(flashAnim, {
       toValue: 0,
       duration: 600,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   }, [flashAnim]);
 
   // ── Barcode handler ─────────────────────────────────────────────────────
   const handleBarCodeScanned = useCallback(
-    ({ data }: BarcodeScanningResult) => {
-      if (singleScan && hasScanned.current) return;
+    async ({ data }: BarcodeScanningResult) => {
+      if ((singleScan && hasScanned.current) || scanState === "processing") return;
       hasScanned.current = true;
 
       setRawValue(data);
-
-      // Vibrate on success
-      Vibration.vibrate(200);
-      triggerFlash();
 
       let parsed: any;
       try {
@@ -102,12 +101,31 @@ const QRScanner: React.FC<QRScannerProps> = ({
       }
 
       setScannedData(parsed);
-      setParseError(false);
-      setScanState("success");
 
-      onScan?.(parsed);
+      if (onScan) {
+        setScanState("processing");
+        try {
+          await onScan(parsed);
+          // Backend call succeeded
+          Vibration.vibrate(200);
+          setHasError(false);
+          setScanState("success");
+          triggerFlash("success");
+        } catch (e) {
+          // Backend call failed
+          Vibration.vibrate([0, 100, 100, 100]); // Error vibration pattern
+          setHasError(true);
+          setScanState("error");
+          triggerFlash("error");
+        }
+      } else {
+        Vibration.vibrate(200);
+        setHasError(false);
+        setScanState("success");
+        triggerFlash("success");
+      }
     },
-    [singleScan, onScan, triggerFlash],
+    [singleScan, onScan, triggerFlash, scanState],
   );
 
   // ── Reset ────────────────────────────────────────────────────────────────
@@ -115,7 +133,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
     hasScanned.current = false;
     setScannedData(null);
     setRawValue("");
-    setParseError(false);
+    setHasError(false);
     flashAnim.setValue(0); // Reset the flash opacity curtain!
     setScanState("scanning");
   }, [flashAnim]);
@@ -164,14 +182,14 @@ const QRScanner: React.FC<QRScannerProps> = ({
         <Text style={styles.headerSubtitle}>
           {scanState === "scanning"
             ? t("scanner.point_to_scan")
-            : parseError
+            : hasError
               ? t("scanner.invalid_format")
               : t("scanner.scan_complete")}
         </Text>
       </View>
 
       {/* Camera / Result area */}
-      {scanState === "scanning" ? (
+      {scanState === "scanning" || scanState === "processing" ? (
         <View style={styles.cameraWrapper}>
           <CameraView
             style={styles.camera}
@@ -191,10 +209,17 @@ const QRScanner: React.FC<QRScannerProps> = ({
             <Text style={styles.overlayHint}>{t("scanner.align_qr")}</Text>
           </View>
 
-          {/* Flash success overlay */}
+          {scanState === "processing" && (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' }]}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={{ color: 'white', marginTop: 12, fontWeight: '700' }}>Processing...</Text>
+            </View>
+          )}
+
+          {/* Flash success/error overlay */}
           <Animated.View
             pointerEvents="none"
-            style={[styles.flashOverlay, { opacity: flashAnim }]}
+            style={[styles.flashOverlay, { opacity: flashAnim, backgroundColor: flashColor }]}
           />
         </View>
       ) : (
@@ -207,12 +232,12 @@ const QRScanner: React.FC<QRScannerProps> = ({
           <View
             style={[
               styles.statusBadge,
-              parseError ? styles.statusBadgeError : styles.statusBadgeSuccess,
+              hasError ? styles.statusBadgeError : styles.statusBadgeSuccess,
             ]}
           >
             <Text style={styles.statusBadgeText}>
-              {parseError
-                ? t("scanner.invalid_format_badge")
+              {hasError
+                ? t("scanner.scan_failed_badge", "Scan Failed")
                 : t("scanner.scan_success_badge")}
             </Text>
           </View>
@@ -226,7 +251,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
                 </Text>
               </View>
 
-              {!parseError && scannedData !== null ? (
+              {!hasError && scannedData !== null ? (
                 <View style={styles.card}>
                   <Text style={styles.cardLabel}>
                     {t("scanner.parsed_json")}
@@ -235,7 +260,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
                 </View>
               ) : null}
 
-              {parseError ? (
+              {hasError ? (
                 <View style={[styles.card, styles.cardError]}>
                   <Text style={styles.cardErrorText}>
                     {t("scanner.invalid_json_data")}
@@ -247,7 +272,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
             <View style={styles.card}>
               <Text style={styles.cardLabel}>{t("scanner.status")}</Text>
               <Text style={styles.valuePrimitive}>
-                {parseError
+                {hasError
                   ? t("scanner.scan_failed_retry")
                   : t("scanner.scan_processed")}
               </Text>
@@ -257,7 +282,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
       )}
 
       {/* Scan Again button */}
-      {scanState !== "scanning" && (
+      {scanState !== "scanning" && scanState !== "processing" && (
         <View style={styles.footer}>
           <TouchableOpacity
             style={styles.primaryButton}

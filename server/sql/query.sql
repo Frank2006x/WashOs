@@ -297,7 +297,7 @@ INSERT INTO workflow_events (
   event_type,
   metadata
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+VALUES ($1, $2, $3, $4, $5, $6, $7, convert_from($8, 'UTF8')::jsonb)
 RETURNING *;
 
 -- name: GetBookingWorkflowEvents :many
@@ -329,9 +329,16 @@ SET is_active = FALSE,
     updated_at = NOW()
 WHERE token = $1;
 
+-- name: ListActivePushTokensByUser :many
+SELECT *
+FROM push_tokens
+WHERE user_id = $1
+  AND is_active = TRUE
+ORDER BY updated_at DESC;
+
 -- name: CreateNotification :one
 INSERT INTO notifications (recipient_user_id, booking_id, title, message, payload)
-VALUES ($1, $2, $3, $4, $5)
+VALUES ($1, $2, $3, $4, convert_from($5, 'UTF8')::jsonb)
 RETURNING *;
 
 -- name: ListNotificationsByUser :many
@@ -446,3 +453,24 @@ SELECT *
 FROM query_replies
 WHERE query_id = $1
 ORDER BY created_at ASC;
+
+-- =========================
+-- Cycle Period Queries
+-- =========================
+
+-- name: GetActiveCycle :one
+SELECT * FROM laundry_cycle_periods
+WHERE year = $1 AND month = $2 
+AND start_date <= $3 AND end_date >= $3
+LIMIT 1;
+
+-- name: GetDailySlotByFloor :one
+SELECT * FROM laundry_daily_slots
+WHERE date = $1
+AND $2 BETWEEN start_floor AND end_floor
+LIMIT 1;
+
+-- name: CreateCyclePeriod :one
+INSERT INTO laundry_cycle_periods (year, month, part, start_date, end_date)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;

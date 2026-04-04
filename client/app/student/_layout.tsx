@@ -1,10 +1,20 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Redirect, Tabs } from "expo-router";
 import { useColorScheme } from "nativewind";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AppState } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "@/contexts/AuthContext";
 import { studentService } from "@/services/api";
+import {
+  ensureNotificationPermissions,
+  getExpoPushToken,
+  getNotificationPlatform,
+  notifyForNewUnread,
+  primeUnreadNotifications,
+} from "@/services/appNotifications";
+import Constants from "expo-constants";
 
 export default function StudentTabsLayout() {
   const { colorScheme } = useColorScheme();
@@ -12,18 +22,84 @@ export default function StudentTabsLayout() {
   const { t } = useTranslation();
   const { user, loading } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  const hasPrimedUnread = useRef(false);
 
-  useEffect(() => {
-    if (user?.role !== "student") return;
-    (async () => {
+  const refreshUnreadCount = useCallback(
+    async (allowLocalNotify: boolean) => {
+      if (user?.role !== "student") {
+        return;
+      }
+
       try {
         const res = await studentService.listUnreadNotifications(50, 0);
-        setUnreadCount((res.notifications || []).length);
+        const notifications = res.notifications || [];
+        setUnreadCount(notifications.length);
+
+        if (!hasPrimedUnread.current) {
+          primeUnreadNotifications(notifications);
+          hasPrimedUnread.current = true;
+          return;
+        }
+
+        if (allowLocalNotify) {
+          await notifyForNewUnread(notifications);
+        }
       } catch {
         setUnreadCount(0);
       }
+    },
+    [user?.role],
+  );
+
+  useEffect(() => {
+    if (user?.role !== "student") {
+      hasPrimedUnread.current = false;
+      return;
+    }
+
+    (async () => {
+      const hasPermission = await ensureNotificationPermissions();
+      if (hasPermission) {
+        const pushToken = await getExpoPushToken();
+        if (pushToken) {
+          try {
+            await studentService.registerPushToken({
+              token: pushToken,
+              platform: getNotificationPlatform(),
+              device_name:
+                (Constants as any)?.deviceName ||
+                (Constants as any)?.expoConfig?.name ||
+                "student-device",
+            });
+          } catch {
+            // Keep app usable even if push token registration fails.
+          }
+        }
+      }
+      await refreshUnreadCount(false);
     })();
-  }, [user?.role]);
+
+    const appStateSub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        void refreshUnreadCount(true);
+      }
+    });
+
+    const interval = setInterval(() => {
+      void refreshUnreadCount(true);
+    }, 30000);
+
+    return () => {
+      clearInterval(interval);
+      appStateSub.remove();
+    };
+  }, [refreshUnreadCount, user?.role]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshUnreadCount(true);
+    }, [refreshUnreadCount]),
+  );
 
   if (loading) {
     return null;

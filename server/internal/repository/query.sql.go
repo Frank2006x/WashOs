@@ -158,7 +158,7 @@ func (q *Queries) CreateMachineRun(ctx context.Context, arg CreateMachineRunPara
 
 const createNotification = `-- name: CreateNotification :one
 INSERT INTO notifications (recipient_user_id, booking_id, title, message, payload)
-VALUES ($1, $2, $3, $4, $5)
+VALUES ($1, $2, $3, $4, convert_from($5, 'UTF8')::jsonb)
 RETURNING id, recipient_user_id, booking_id, title, message, payload, is_read, read_at, sent_at, created_at
 `
 
@@ -287,7 +287,7 @@ INSERT INTO workflow_events (
   event_type,
   metadata
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+VALUES ($1, $2, $3, $4, $5, $6, $7, convert_from($8, 'UTF8')::jsonb)
 RETURNING id, booking_id, bag_id, student_id, machine_id, triggered_by_user_id, triggered_role, event_type, metadata, created_at
 `
 
@@ -1014,6 +1014,45 @@ WHERE recipient_user_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
 `
+
+const listActivePushTokensByUser = `-- name: ListActivePushTokensByUser :many
+SELECT id, user_id, token, platform, device_name, is_active, last_seen_at, invalidated_at, created_at, updated_at
+FROM push_tokens
+WHERE user_id = $1
+  AND is_active = TRUE
+ORDER BY updated_at DESC
+`
+
+func (q *Queries) ListActivePushTokensByUser(ctx context.Context, userID pgtype.UUID) ([]PushToken, error) {
+	rows, err := q.db.Query(ctx, listActivePushTokensByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PushToken
+	for rows.Next() {
+		var i PushToken
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Token,
+			&i.Platform,
+			&i.DeviceName,
+			&i.IsActive,
+			&i.LastSeenAt,
+			&i.InvalidatedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
 
 type ListNotificationsByUserParams struct {
 	RecipientUserID pgtype.UUID `json:"recipient_user_id"`

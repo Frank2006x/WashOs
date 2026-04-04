@@ -16,6 +16,7 @@ import {
   studentService,
 } from "@/services/api";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 
 function formatDate(value?: string): string {
   if (!value) return "";
@@ -93,6 +94,12 @@ export default function NotificationsPanel() {
       setLoading(false);
     })();
   }, [load]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -202,7 +209,11 @@ export default function NotificationsPanel() {
                         className={`flex-row items-start rounded-2xl border-l-4 border-l-blue-500 border border-border bg-background dark:border-border-dark dark:bg-background-dark ${isCompact ? "p-3" : "p-4"}`}
                       >
                         <View className="mr-3 mt-1 bg-blue-100 dark:bg-blue-900/40 p-2 rounded-full">
-                          <MaterialCommunityIcons name="bell-ring" size={20} color="#3b82f6" />
+                          <MaterialCommunityIcons
+                            name="bell-ring"
+                            size={20}
+                            color="#3b82f6"
+                          />
                         </View>
                         <View className="flex-1">
                           <View className="flex-row items-start justify-between">
@@ -231,7 +242,12 @@ export default function NotificationsPanel() {
                               className="flex-row items-center bg-muted dark:bg-muted-dark px-3 py-1.5 rounded-full"
                               onPress={() => onMarkRead(item.id)}
                             >
-                              <MaterialCommunityIcons name="check-all" size={14} color="#a1a1aa" className="mr-1" />
+                              <MaterialCommunityIcons
+                                name="check-all"
+                                size={14}
+                                color="#a1a1aa"
+                                className="mr-1"
+                              />
                               <Text className="text-xs font-bold text-muted-foreground dark:text-muted-foreground-dark ml-1">
                                 Mark Read
                               </Text>
@@ -265,7 +281,11 @@ export default function NotificationsPanel() {
                         className={`flex-row items-start rounded-2xl border border-border bg-muted/30 dark:border-border-dark dark:bg-muted-dark/20 opacity-80 ${isCompact ? "p-3" : "p-4"}`}
                       >
                         <View className="mr-3 mt-1 bg-muted dark:bg-muted-dark p-2 rounded-full">
-                          <MaterialCommunityIcons name="bell-outline" size={20} color="#a1a1aa" />
+                          <MaterialCommunityIcons
+                            name="bell-outline"
+                            size={20}
+                            color="#a1a1aa"
+                          />
                         </View>
                         <View className="flex-1">
                           <Text className="text-base font-bold text-muted-foreground dark:text-muted-foreground-dark">

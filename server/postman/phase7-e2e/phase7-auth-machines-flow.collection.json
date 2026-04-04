@@ -1,0 +1,997 @@
+{
+  "info": {
+    "_postman_id": "9d96f6a8-ec07-44d6-8f8d-6e2c5a64e8b3",
+    "name": "WashOs Phase7 - Auth + Machines + Full Scan Flow",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health - Ping",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/ping",
+          "host": ["{{baseUrl}}"],
+          "path": ["ping"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ping returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Student Signup",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const seed = Date.now().toString();",
+              "pm.collectionVariables.set('student_name', 'Phase7 Student ' + seed.slice(-4));",
+              "pm.collectionVariables.set('student_reg_no', '24BCE' + seed.slice(-6));",
+              "pm.collectionVariables.set('student_email', 'phase7.student.' + seed + '@washos.com');",
+              "if (!pm.collectionVariables.get('student_password')) {",
+              "  pm.collectionVariables.set('student_password', 'password123');",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Student signup returns 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Student signup response includes user', function () {",
+              "  pm.expect(json).to.have.property('user');",
+              "  pm.expect(json.user).to.have.property('email');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"{{student_name}}\",\n  \"reg_no\": \"{{student_reg_no}}\",\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/student/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "student", "signup"]
+        }
+      }
+    },
+    {
+      "name": "Auth - Student Signin",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/student/signin",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "student", "signin"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Student signin returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Student signin returns tokens', function () {",
+              "  pm.expect(json).to.have.property('access_token');",
+              "  pm.expect(json).to.have.property('refresh_token');",
+              "});",
+              "pm.collectionVariables.set('student_access_token', json.access_token || '');",
+              "pm.collectionVariables.set('student_refresh_token', json.refresh_token || '');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Login Alias (Student)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "login"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Login alias returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Login alias returns access_token', function () {",
+              "  pm.expect(json).to.have.property('access_token');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student - Init Bag QR",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/student/me/bag/init",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "student", "me", "bag", "init"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Init bag returns 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Init bag returns qr_payload', function () {",
+              "  pm.expect(json).to.have.property('qr_payload');",
+              "});",
+              "pm.collectionVariables.set('qr_payload', json.qr_payload || '');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications - Register Push Token (Student)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_access_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{student_push_token}}\",\n  \"platform\": \"android\",\n  \"device_name\": \"postman-emulator\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/notifications/push-token",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notifications", "push-token"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Register push token returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Response contains push_token', function () {",
+              "  pm.expect(json).to.have.property('push_token');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Staff Signup",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const seed = Date.now().toString();",
+              "pm.collectionVariables.set('staff_name', 'Phase7 Staff ' + seed.slice(-4));",
+              "pm.collectionVariables.set('staff_phone', '+9198' + seed.slice(-8));",
+              "pm.collectionVariables.set('staff_email', 'phase7.staff.' + seed + '@washos.com');",
+              "if (!pm.collectionVariables.get('staff_password')) {",
+              "  pm.collectionVariables.set('staff_password', 'password123');",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Staff signup returns 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"{{staff_name}}\",\n  \"phone\": \"{{staff_phone}}\",\n  \"email\": \"{{staff_email}}\",\n  \"password\": \"{{staff_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/staff/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "staff", "signup"]
+        }
+      }
+    },
+    {
+      "name": "Auth - Staff Signin",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"{{staff_phone}}\",\n  \"password\": \"{{staff_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/staff/signin",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "staff", "signin"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Staff signin returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Staff signin returns tokens', function () {",
+              "  pm.expect(json).to.have.property('access_token');",
+              "  pm.expect(json).to.have.property('refresh_token');",
+              "});",
+              "pm.collectionVariables.set('staff_access_token', json.access_token || '');",
+              "pm.collectionVariables.set('staff_refresh_token', json.refresh_token || '');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Machines - List Washers",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{staff_access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/machines?type=washer",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "machines"],
+          "query": [
+            {
+              "key": "type",
+              "value": "washer"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('List washers returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Washers array exists', function () {",
+              "  pm.expect(Array.isArray(json.machines)).to.eql(true);",
+              "  pm.expect(json.machines.length).to.be.greaterThan(0);",
+              "});",
+              "const washer = (json.machines || []).find(function (m) { return m.is_active !== false; }) || json.machines[0];",
+              "pm.collectionVariables.set('washer_machine_id', washer ? washer.id : '');",
+              "pm.collectionVariables.set('washer_machine_code', washer ? washer.code : '');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Machines - List Dryers",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{staff_access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/machines?type=dryer",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "machines"],
+          "query": [
+            {
+              "key": "type",
+              "value": "dryer"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('List dryers returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Dryers array exists', function () {",
+              "  pm.expect(Array.isArray(json.machines)).to.eql(true);",
+              "  pm.expect(json.machines.length).to.be.greaterThan(0);",
+              "});",
+              "const dryer = (json.machines || []).find(function (m) { return m.is_active !== false; }) || json.machines[0];",
+              "pm.collectionVariables.set('dryer_machine_id', dryer ? dryer.id : '');",
+              "pm.collectionVariables.set('dryer_machine_code', dryer ? dryer.code : '');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan - Intake",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{staff_access_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"qr_code\": \"{{qr_payload}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/scan/intake",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "scan", "intake"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Intake returns 201 or idempotent 200', function () {",
+              "  pm.expect([200, 201]).to.include(pm.response.code);",
+              "});",
+              "const json = pm.response.json();",
+              "const bookingNode = json.booking || {};",
+              "const bookingId = bookingNode.booking_id || bookingNode.id || '';",
+              "pm.test('Intake returns booking id', function () {",
+              "  pm.expect(bookingId).to.not.eql('');",
+              "});",
+              "pm.collectionVariables.set('booking_id', bookingId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan - Wash Start",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{staff_access_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"qr_code\": \"{{qr_payload}}\",\n  \"machine_id\": \"{{washer_machine_id}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/scan/wash-start",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "scan", "wash-start"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Wash start returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Booking status is washing', function () {",
+              "  pm.expect(json.booking.status).to.eql('washing');",
+              "});",
+              "const bookingId = (json.booking && (json.booking.id || json.booking.booking_id)) || pm.collectionVariables.get('booking_id');",
+              "pm.collectionVariables.set('booking_id', bookingId || '');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan - Wash Finish",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{staff_access_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"qr_code\": \"{{qr_payload}}\",\n  \"machine_id\": \"{{washer_machine_id}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/scan/wash-finish",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "scan", "wash-finish"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Wash finish returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Booking status is wash_done', function () {",
+              "  pm.expect(json.booking.status).to.eql('wash_done');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan - Dry Start",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{staff_access_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"qr_code\": \"{{qr_payload}}\",\n  \"machine_id\": \"{{dryer_machine_id}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/scan/dry-start",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "scan", "dry-start"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Dry start returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Booking status is drying', function () {",
+              "  pm.expect(json.booking.status).to.eql('drying');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan - Dry Finish",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{staff_access_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"qr_code\": \"{{qr_payload}}\",\n  \"machine_id\": \"{{dryer_machine_id}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/scan/dry-finish",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "scan", "dry-finish"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Dry finish returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Booking status is dry_done', function () {",
+              "  pm.expect(json.booking.status).to.eql('dry_done');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan - Mark Ready",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{staff_access_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"qr_code\": \"{{qr_payload}}\",\n  \"row_no\": \"{{row_no}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/scan/ready",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "scan", "ready"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ready scan returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Booking status is ready_for_pickup', function () {",
+              "  pm.expect(json.booking.status).to.eql('ready_for_pickup');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications - Student List (Ready Alert)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/notifications/my?limit=20&offset=0",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "notifications", "my"],
+          "query": [
+            {
+              "key": "limit",
+              "value": "20"
+            },
+            {
+              "key": "offset",
+              "value": "0"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Notifications list returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "const notifications = Array.isArray(json.notifications) ? json.notifications : [];",
+              "pm.test('Notifications array exists', function () {",
+              "  pm.expect(Array.isArray(json.notifications)).to.eql(true);",
+              "});",
+              "const bookingId = pm.collectionVariables.get('booking_id');",
+              "const readyNotification = notifications.find(function (n) {",
+              "  const payload = n && n.payload && typeof n.payload === 'object' ? n.payload : {};",
+              "  return payload.booking_id === bookingId && n.title === 'Laundry Ready for Pickup';",
+              "});",
+              "pm.test('Ready notification exists for booking', function () {",
+              "  pm.expect(!!readyNotification).to.eql(true);",
+              "});",
+              "pm.test('Ready notification payload includes row_no', function () {",
+              "  const payload = readyNotification && readyNotification.payload && typeof readyNotification.payload === 'object' ? readyNotification.payload : {};",
+              "  pm.expect(payload.row_no).to.eql(pm.collectionVariables.get('row_no'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Booking - Student Collect",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/bookings/{{booking_id}}/collect",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "bookings", "{{booking_id}}", "collect"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Collect returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Booking status is collected', function () {",
+              "  pm.expect(json.booking.status).to.eql('collected');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Booking - Events (Student View)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_access_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/bookings/{{booking_id}}/events",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "bookings", "{{booking_id}}", "events"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Booking events returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "const bookingId = pm.collectionVariables.get('booking_id') || '';",
+              "const events = Array.isArray(json.events) ? json.events : [];",
+              "pm.collectionVariables.set('last_events_count', String(events.length));",
+              "pm.test('booking_id variable is set', function () {",
+              "  pm.expect(bookingId).to.not.eql('');",
+              "});",
+              "pm.test('Events array exists', function () {",
+              "  pm.expect(Array.isArray(json.events)).to.eql(true);",
+              "});",
+              "pm.test('Events are not empty', function () {",
+              "  if (events.length === 0) {",
+              "    pm.expect.fail('No workflow events for booking_id=' + bookingId + '. Run the collection from the top and confirm scan steps succeeded for this same booking.');",
+              "  }",
+              "});",
+              "function parseMetadata(metadata) {",
+              "  if (!metadata) return {};",
+              "",
+              "  function decodeBase64ToUtf8(input) {",
+              "    if (typeof input !== 'string' || input.length === 0) return '';",
+              "    try {",
+              "      if (typeof atob === 'function') {",
+              "        return decodeURIComponent(escape(atob(input)));",
+              "      }",
+              "    } catch (e) {}",
+              "    try {",
+              "      if (typeof Buffer !== 'undefined' && Buffer.from) {",
+              "        return Buffer.from(input, 'base64').toString('utf8');",
+              "      }",
+              "    } catch (e) {}",
+              "    return '';",
+              "  }",
+              "",
+              "  if (typeof metadata === 'object') {",
+              "    if (metadata.machine_code || metadata.row_no || metadata.machineCode || metadata.rowNo) {",
+              "      return metadata;",
+              "    }",
+              "",
+              "    if (typeof metadata.string === 'string') {",
+              "      try { return JSON.parse(metadata.string); } catch (e) {}",
+              "    }",
+              "",
+              "    if (typeof metadata.data === 'string') {",
+              "      try { return JSON.parse(metadata.data); } catch (e) {}",
+              "      try {",
+              "        const decoded = decodeBase64ToUtf8(metadata.data);",
+              "        if (decoded) return JSON.parse(decoded);",
+              "      } catch (e) {}",
+              "    }",
+              "",
+              "    if (metadata.type === 'Buffer' && Array.isArray(metadata.data)) {",
+              "      try {",
+              "        const raw = String.fromCharCode.apply(null, metadata.data);",
+              "        return JSON.parse(raw);",
+              "      } catch (e) {}",
+              "    }",
+              "",
+              "    if (Array.isArray(metadata.bytes)) {",
+              "      try {",
+              "        const decoded = String.fromCharCode.apply(null, metadata.bytes);",
+              "        return JSON.parse(decoded);",
+              "      } catch (e) {}",
+              "    }",
+              "",
+              "    return metadata;",
+              "  }",
+              "",
+              "  if (typeof metadata !== 'string') return {};",
+              "",
+              "  try { return JSON.parse(metadata); } catch (e) {}",
+              "  try {",
+              "    const decoded = decodeBase64ToUtf8(metadata);",
+              "    if (decoded) return JSON.parse(decoded);",
+              "  } catch (e) {}",
+              "",
+              "  return {};",
+              "}",
+              "const normalized = events.map(function (e) {",
+              "  return {",
+              "    event_type: e.event_type,",
+              "    metadata: parseMetadata(e.metadata)",
+              "  };",
+              "});",
+              "const types = normalized.map(function (e) { return e.event_type; });",
+              "const requiredTypes = ['received', 'wash_started', 'wash_finished', 'dry_started', 'dry_finished', 'marked_ready', 'collected'];",
+              "const missingTypes = requiredTypes.filter(function (t) { return types.indexOf(t) === -1; });",
+              "pm.test('Required lifecycle event types exist', function () {",
+              "  if (missingTypes.length > 0) {",
+              "    pm.expect.fail('Missing event types: ' + missingTypes.join(', ') + ' | Found: ' + types.join(', '));",
+              "  }",
+              "});",
+              "const hasMachineCode = normalized.some(function (e) {",
+              "  return !!(",
+              "    (e.metadata && (e.metadata.machine_code || e.metadata.machineCode)) ||",
+              "    e.machine_code ||",
+              "    e.machineCode",
+              "  );",
+              "});",
+              "const hasRowNo = normalized.some(function (e) {",
+              "  return !!(",
+              "    (e.metadata && (e.metadata.row_no || e.metadata.rowNo)) ||",
+              "    e.row_no ||",
+              "    e.rowNo",
+              "  );",
+              "});",
+              "pm.test('Events include machine_code metadata', function () {",
+              "  pm.expect(hasMachineCode).to.eql(true);",
+              "});",
+              "pm.test('Events include row_no metadata', function () {",
+              "  pm.expect(hasRowNo).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001"
+    },
+    {
+      "key": "student_name",
+      "value": ""
+    },
+    {
+      "key": "student_reg_no",
+      "value": ""
+    },
+    {
+      "key": "student_email",
+      "value": ""
+    },
+    {
+      "key": "student_password",
+      "value": "password123"
+    },
+    {
+      "key": "student_access_token",
+      "value": ""
+    },
+    {
+      "key": "student_refresh_token",
+      "value": ""
+    },
+    {
+      "key": "staff_name",
+      "value": ""
+    },
+    {
+      "key": "staff_phone",
+      "value": ""
+    },
+    {
+      "key": "staff_email",
+      "value": ""
+    },
+    {
+      "key": "staff_password",
+      "value": "password123"
+    },
+    {
+      "key": "staff_access_token",
+      "value": ""
+    },
+    {
+      "key": "staff_refresh_token",
+      "value": ""
+    },
+    {
+      "key": "qr_payload",
+      "value": ""
+    },
+    {
+      "key": "booking_id",
+      "value": ""
+    },
+    {
+      "key": "washer_machine_id",
+      "value": ""
+    },
+    {
+      "key": "washer_machine_code",
+      "value": ""
+    },
+    {
+      "key": "dryer_machine_id",
+      "value": ""
+    },
+    {
+      "key": "dryer_machine_code",
+      "value": ""
+    },
+    {
+      "key": "row_no",
+      "value": "A-12"
+    },
+    {
+      "key": "student_push_token",
+      "value": "ExponentPushToken[postman-phase7-student]"
+    }
+  ]
+}

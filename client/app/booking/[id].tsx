@@ -28,7 +28,7 @@ function timeLabel(value?: string): string {
   return dt.toLocaleString();
 }
 
-function getMachineLabel(evt: Record<string, any>): string {
+function getEventDetailLabel(evt: Record<string, any>): string {
   const payload = evt?.metadata;
   let metadata: Record<string, any> = {};
 
@@ -47,7 +47,12 @@ function getMachineLabel(evt: Record<string, any>): string {
 
   const machineCode = metadata?.machine_code;
   if (typeof machineCode === "string" && machineCode.trim().length > 0) {
-    return machineCode.trim();
+    return `Machine: ${machineCode.trim()}`;
+  }
+
+  const rowNo = metadata?.row_no;
+  if (typeof rowNo === "string" && rowNo.trim().length > 0) {
+    return `Row: ${rowNo.trim()}`;
   }
 
   return "";
@@ -110,10 +115,7 @@ export default function BookingDetailScreen() {
         }
         await studentService.collectBooking(bookingID);
         await loadDetail();
-        Alert.alert(
-          "Success",
-          "Pickup completed and order collected.",
-        );
+        Alert.alert("Success", "Pickup completed and order collected.");
       } catch (e: any) {
         Alert.alert(
           "Error",
@@ -157,7 +159,12 @@ export default function BookingDetailScreen() {
     >
       <View className="flex-row items-center px-4 py-3 bg-background dark:bg-background-dark border-b border-border dark:border-border-dark">
         <Pressable onPress={() => router.back()} className="p-2 mr-2">
-          <MaterialCommunityIcons name="arrow-left" size={24} className="text-foreground dark:text-foreground-dark" color="#a1a1aa" />
+          <MaterialCommunityIcons
+            name="arrow-left"
+            size={24}
+            className="text-foreground dark:text-foreground-dark"
+            color="#a1a1aa"
+          />
         </Pressable>
         <Text className="text-lg font-bold text-foreground dark:text-foreground-dark flex-1">
           Tracking Details
@@ -204,9 +211,9 @@ export default function BookingDetailScreen() {
               events={events}
             />
           ) : (
-             <Text className="text-sm text-muted-foreground dark:text-muted-foreground-dark">
-               Loading tracking data...
-             </Text>
+            <Text className="text-sm text-muted-foreground dark:text-muted-foreground-dark">
+              Loading tracking data...
+            </Text>
           )}
         </View>
 
@@ -218,7 +225,8 @@ export default function BookingDetailScreen() {
               Checkout & Pickup
             </Text>
             <Text className="mt-2 text-sm text-muted-foreground dark:text-muted-foreground-dark">
-              Scan your laundry bag QR to verify possession and finalize checkout.
+              Scan your laundry bag QR to verify possession and finalize
+              checkout.
             </Text>
 
             {pickupLoading ? (
@@ -227,7 +235,11 @@ export default function BookingDetailScreen() {
               </View>
             ) : (
               <View className="mt-4 overflow-hidden rounded-2xl border-2 border-primary-dark/30 dark:border-primary/30 shadow-sm h-64">
-                <QRScanner title="Checkout Scan" onScan={handlePickupScan} showScanDetails={false} />
+                <QRScanner
+                  title="Checkout Scan"
+                  onScan={handlePickupScan}
+                  showScanDetails={false}
+                />
               </View>
             )}
           </View>
@@ -246,7 +258,7 @@ export default function BookingDetailScreen() {
               </Text>
             ) : (
               events.map((evt) => {
-                const machineLabel = getMachineLabel(evt);
+                const eventDetailLabel = getEventDetailLabel(evt);
                 return (
                   <View
                     key={String(evt.id)}
@@ -255,9 +267,9 @@ export default function BookingDetailScreen() {
                     <Text className="text-sm font-bold text-card-foreground dark:text-card-foreground-dark">
                       {statusLabel(String(evt.event_type || ""))}
                     </Text>
-                    {machineLabel ? (
+                    {eventDetailLabel ? (
                       <Text className="mt-1 text-xs font-semibold text-card-foreground dark:text-card-foreground-dark">
-                        Machine: {machineLabel}
+                        {eventDetailLabel}
                       </Text>
                     ) : null}
                     <Text className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground-dark">

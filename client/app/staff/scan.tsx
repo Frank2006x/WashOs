@@ -179,6 +179,7 @@ export default function StaffIntakeScanScreen() {
       setLastScanStatus("error");
       setLastScanMessage(msg);
       Alert.alert(t("common.error", "Error"), msg);
+      throw e;
     }
   };
 

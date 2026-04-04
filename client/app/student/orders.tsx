@@ -109,6 +109,7 @@ export default function StudentOrdersScreen() {
             e?.message ||
             "Failed to complete pickup.",
         );
+        throw e;
       } finally {
         setPickupLoading(false);
       }

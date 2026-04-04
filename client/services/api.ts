@@ -291,6 +291,12 @@ export type NotificationListResponse = {
   notifications: NotificationRecord[];
 };
 
+export type PushTokenRegisterRequest = {
+  token: string;
+  platform: "ios" | "android" | "web";
+  device_name?: string;
+};
+
 export type MachineRecord = {
   id: string;
   code: string;
@@ -433,6 +439,16 @@ export const studentService = {
 
   async markNotificationRead(notificationID: string): Promise<void> {
     await api.patch(`/api/notifications/${notificationID}/read`);
+  },
+
+  async registerPushToken(payload: PushTokenRegisterRequest): Promise<void> {
+    await api.post("/api/notifications/push-token", payload);
+  },
+
+  async deactivatePushToken(token: string): Promise<void> {
+    await api.delete("/api/notifications/push-token", {
+      data: { token },
+    });
   },
 };
 
