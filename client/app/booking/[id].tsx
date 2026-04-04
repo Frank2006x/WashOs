@@ -59,7 +59,10 @@ export default function BookingDetailScreen() {
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isCompact = width < 360;
-  const scanAreaSize = Math.max(220, Math.min(width - (isCompact ? 48 : 64), 360));
+  const scanAreaSize = Math.max(
+    220,
+    Math.min(width - (isCompact ? 48 : 64), 360),
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [booking, setBooking] = useState<Record<string, any> | null>(null);
@@ -111,10 +114,7 @@ export default function BookingDetailScreen() {
         }
         await studentService.collectBooking(bookingID);
         await loadDetail();
-        Alert.alert(
-          "Success",
-          "Pickup completed and order collected.",
-        );
+        Alert.alert("Success", "Pickup completed and order collected.");
       } catch (e: any) {
         Alert.alert(
           "Error",
@@ -158,7 +158,12 @@ export default function BookingDetailScreen() {
     >
       <View className="flex-row items-center px-4 py-3 bg-background dark:bg-background-dark border-b border-border dark:border-border-dark">
         <Pressable onPress={() => router.back()} className="p-2 mr-2">
-          <MaterialCommunityIcons name="arrow-left" size={24} className="text-foreground dark:text-foreground-dark" color="#a1a1aa" />
+          <MaterialCommunityIcons
+            name="arrow-left"
+            size={24}
+            className="text-foreground dark:text-foreground-dark"
+            color="#a1a1aa"
+          />
         </Pressable>
         <Text className="text-lg font-bold text-foreground dark:text-foreground-dark flex-1">
           Tracking Details
@@ -205,9 +210,9 @@ export default function BookingDetailScreen() {
               events={events}
             />
           ) : (
-             <Text className="text-sm text-muted-foreground dark:text-muted-foreground-dark">
-               Loading tracking data...
-             </Text>
+            <Text className="text-sm text-muted-foreground dark:text-muted-foreground-dark">
+              Loading tracking data...
+            </Text>
           )}
         </View>
 
@@ -219,7 +224,8 @@ export default function BookingDetailScreen() {
               Checkout & Pickup
             </Text>
             <Text className="mt-2 text-sm text-muted-foreground dark:text-muted-foreground-dark">
-              Scan your laundry bag QR to verify possession and finalize checkout.
+              Scan your laundry bag QR to verify possession and finalize
+              checkout.
             </Text>
 
             {pickupLoading ? (
@@ -231,7 +237,11 @@ export default function BookingDetailScreen() {
                 className="mt-4 self-center overflow-hidden rounded-2xl border-2 border-primary-dark/30 dark:border-primary/30 shadow-sm"
                 style={{ width: scanAreaSize, height: scanAreaSize }}
               >
-                <QRScanner title="Checkout Scan" onScan={handlePickupScan} showScanDetails={false} />
+                <QRScanner
+                  title="Checkout Scan"
+                  onScan={handlePickupScan}
+                  showScanDetails={false}
+                />
               </View>
             )}
           </View>
