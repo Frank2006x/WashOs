@@ -13,13 +13,15 @@ import {
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "../../contexts/AuthContext";
 import {
-  BagResponse,
-  StaffRatingSummaryResponse,
   staffService,
   studentService,
-} from "@/services/api";
+} from "../../services/api";
+import type {
+  BagResponse,
+  StaffRatingSummaryResponse,
+} from "../../services/api";
 import { useTranslation } from "react-i18next";
 
 const BLOCKS = ["A", "B", "C", "D1", "D2", "E"] as const;
@@ -70,13 +72,13 @@ export default function ProfileTab() {
       ]);
       setBag(data); // null = no bag yet
       if (data?.block) setSelectedBlock(data.block as Block);
-      if (typeof residence?.floor_no === "number") {
-        setFloorNo(String(residence.floor_no));
+      if (typeof (residence as any)?.floor_no === "number") {
+        setFloorNo(String((residence as any).floor_no));
       } else {
         setFloorNo("");
       }
-      if (typeof residence?.room_no === "number") {
-        setRoomNo(String(residence.room_no));
+      if (typeof (residence as any)?.room_no === "number") {
+        setRoomNo(String((residence as any).room_no));
       } else {
         setRoomNo("");
       }
@@ -96,8 +98,10 @@ export default function ProfileTab() {
 
     setStaffRatingsLoading(true);
     try {
-      const summary = await staffService.getRatingSummary();
-      setStaffRatingSummary(summary);
+      if (staffService.getRatingSummary) {
+        const summary = await staffService.getRatingSummary();
+        setStaffRatingSummary(summary);
+      }
     } catch (e: any) {
       console.warn("staff ratings fetch failed", e?.message);
       setStaffRatingSummary(null);
@@ -199,24 +203,26 @@ export default function ProfileTab() {
     const parsedRoom = Number.parseInt(roomNo.trim(), 10);
 
     if (!Number.isInteger(parsedFloor) || parsedFloor <= 0) {
-      Alert.alert("Validation", "Please enter a valid floor number.");
+      Alert.alert(t("common.validation", "Validation"), t("profile.err_residence_floor", "Please enter a valid floor number."));
       return;
     }
     if (!Number.isInteger(parsedRoom) || parsedRoom <= 0) {
-      Alert.alert("Validation", "Please enter a valid room number.");
+      Alert.alert(t("common.validation", "Validation"), t("profile.err_residence_room", "Please enter a valid room number."));
       return;
     }
 
     setSavingResidence(true);
     try {
-      await studentService.updateMyResidence(parsedFloor, parsedRoom);
-      await fetchBag();
-      setIsEditingResidence(false);
-      Alert.alert("Saved", "Floor and room updated.");
+      if ((studentService as any).updateMyResidence) {
+        await (studentService as any).updateMyResidence(parsedFloor, parsedRoom);
+        await fetchBag();
+        setIsEditingResidence(false);
+        Alert.alert(t("common.saved", "Saved"), t("profile.residence_updated", "Floor and room updated."));
+      }
     } catch (e: any) {
       Alert.alert(
         t("common.error", "Error"),
-        e?.response?.data?.error || e?.message || "Failed to save residence.",
+        e?.response?.data?.error || e?.message || t("profile.err_save_residence", "Failed to save residence."),
       );
     } finally {
       setSavingResidence(false);
@@ -228,14 +234,14 @@ export default function ProfileTab() {
     router.push({
       pathname: "/qr-modal",
       params: {
-        payload: bag.qr_payload,
-        reg_no: bag.reg_no,
-        name: bag.name,
-        block: bag.block ?? "",
+        payload: (bag as any).qr_payload,
+        reg_no: (bag as any).reg_no,
+        name: (bag as any).name,
+        block: (bag as any).block ?? "",
         floor_no:
-          typeof bag.floor_no === "number" ? String(bag.floor_no) : floorNo,
-        room_no: typeof bag.room_no === "number" ? String(bag.room_no) : roomNo,
-        version: String(bag.qr_version),
+          typeof (bag as any).floor_no === "number" ? String((bag as any).floor_no) : floorNo,
+        room_no: typeof (bag as any).room_no === "number" ? String((bag as any).room_no) : roomNo,
+        version: String((bag as any).qr_version),
       },
     });
   };
@@ -244,9 +250,9 @@ export default function ProfileTab() {
   const getRoleLabel = (role: string) => {
     switch (role) {
       case "student":
-        return "Student";
+        return t("profile.role_student", "Student");
       case "laundry_staff":
-        return "Laundry Staff";
+        return t("profile.role_staff", "Laundry Staff");
       default:
         return role;
     }
@@ -324,10 +330,10 @@ export default function ProfileTab() {
             )}
             {user?.role === "laundry_staff" && (
               <InfoRow
-                label="Average Service Rating"
+                label={t("profile.avg_service_rating", "Average Service Rating")}
                 value={
                   staffRatingsLoading
-                    ? "Loading..."
+                    ? t("common.loading", "Loading...")
                     : staffRatingSummary
                       ? `${staffRatingSummary.avg_service_rating.toFixed(1)} / 5`
                       : "N/A"
@@ -336,10 +342,10 @@ export default function ProfileTab() {
             )}
             {user?.role === "laundry_staff" && (
               <InfoRow
-                label="Average Handling Rating"
+                label={t("profile.avg_handling_rating", "Average Handling Rating")}
                 value={
                   staffRatingsLoading
-                    ? "Loading..."
+                    ? t("common.loading", "Loading...")
                     : staffRatingSummary
                       ? `${staffRatingSummary.avg_handling_rating.toFixed(1)} / 5`
                       : "N/A"
@@ -348,12 +354,12 @@ export default function ProfileTab() {
             )}
             {user?.role === "laundry_staff" && (
               <InfoRow
-                label="Overall Rating"
+                label={t("profile.avg_overall_rating", "Overall Rating")}
                 value={
                   staffRatingsLoading
-                    ? "Loading..."
+                    ? t("common.loading", "Loading...")
                     : staffRatingSummary
-                      ? `${staffRatingSummary.avg_overall_rating.toFixed(1)} / 5 (${staffRatingSummary.rated_query_count} queries)`
+                      ? `${staffRatingSummary.avg_overall_rating.toFixed(1)} / 5 ${t("profile.rating_count", "({{count}} queries)", { count: staffRatingSummary.rated_query_count })}`
                       : "N/A"
                 }
               />
@@ -365,10 +371,10 @@ export default function ProfileTab() {
               />
             )}
             {isStudent && floorNo ? (
-              <InfoRow label="Floor" value={floorNo} />
+              <InfoRow label={t("profile.floor", "Floor")} value={floorNo} />
             ) : null}
             {isStudent && roomNo ? (
-              <InfoRow label="Room" value={roomNo} />
+              <InfoRow label={t("profile.room", "Room")} value={roomNo} />
             ) : null}
             <InfoRow
               label={t("profile.member_since", "Member Since") as string}
@@ -387,7 +393,7 @@ export default function ProfileTab() {
                 <Text className="text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
                   {t("profile.hostel_block", "Hostel Block")}
                 </Text>
-                {bag?.block && !isEditingBlock && (
+                {(bag as any)?.block && !isEditingBlock && (
                   <Pressable
                     onPress={() => setIsEditingBlock(true)}
                     className="flex-row items-center gap-1 rounded-full border border-border px-3 py-1.5 dark:border-border-dark"
@@ -405,7 +411,7 @@ export default function ProfileTab() {
                 )}
               </View>
 
-              {bag?.block && !isEditingBlock ? (
+              {(bag as any)?.block && !isEditingBlock ? (
                 <View className="flex-row items-center">
                   <View className="mr-3 h-12 w-12 items-center justify-center rounded-full bg-primary-dark/10 dark:bg-primary/10">
                     <MaterialIcons name="apartment" size={24} color="#293975" />
@@ -415,14 +421,14 @@ export default function ProfileTab() {
                       {t("profile.current_block", "Your current block")}
                     </Text>
                     <Text className="text-xl font-extrabold text-card-foreground dark:text-card-foreground-dark">
-                      {t("profile.hostel_block", "Block")} {bag.block}
+                      {t("profile.hostel_block", "Block")} {(bag as any).block}
                     </Text>
                   </View>
                 </View>
               ) : (
                 <>
                   <Text className="mb-4 text-sm text-muted-foreground dark:text-muted-foreground-dark">
-                    Set your block so laundry can be delivered correctly.
+                    {t("profile.set_block_desc", "Set your block so laundry can be delivered correctly.")}
                   </Text>
 
                   <View className="flex-row flex-wrap gap-2">
@@ -453,10 +459,10 @@ export default function ProfileTab() {
                   </View>
 
                   <View className="mt-4 flex-row gap-2">
-                    {bag?.block && isEditingBlock && (
+                    {(bag as any)?.block && isEditingBlock && (
                       <Pressable
                         onPress={() => {
-                          setSelectedBlock(bag.block as Block);
+                          setSelectedBlock((bag as any).block as Block);
                           setIsEditingBlock(false);
                         }}
                         disabled={savingBlock}
@@ -493,7 +499,7 @@ export default function ProfileTab() {
             <View className="mt-5 rounded-2xl bg-card p-5 dark:bg-card-dark">
               <View className="mb-4 flex-row items-center justify-between">
                 <Text className="text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
-                  Residence Info
+                  {t("profile.residence_info", "Residence Info")}
                 </Text>
                 {hasResidence && !isEditingResidence && (
                   <Pressable
@@ -524,21 +530,21 @@ export default function ProfileTab() {
                   </View>
                   <View>
                     <Text className="text-sm font-medium text-muted-foreground dark:text-muted-foreground-dark">
-                      Current Residence
+                      {t("profile.current_residence", "Current Residence")}
                     </Text>
                     <Text className="text-base font-extrabold text-card-foreground dark:text-card-foreground-dark">
-                      Floor {floorNo || "-"} • Room {roomNo || "-"}
+                      {t("profile.floor", "Floor")} {floorNo || "-"} • {t("profile.room", "Room")} {roomNo || "-"}
                     </Text>
                   </View>
                 </View>
               ) : (
                 <>
                   <Text className="mb-4 text-sm text-muted-foreground dark:text-muted-foreground-dark">
-                    Add your floor and room so laundry delivery is accurate.
+                    {t("profile.residence_desc", "Add your floor and room so laundry delivery is accurate.")}
                   </Text>
 
                   <Text className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground-dark">
-                    Floor Number
+                    {t("profile.floor_label", "Floor Number")}
                   </Text>
                   <TextInput
                     value={floorNo}
@@ -549,7 +555,7 @@ export default function ProfileTab() {
                   />
 
                   <Text className="mb-1 mt-4 text-xs font-bold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground-dark">
-                    Room Number
+                    {t("profile.room_label", "Room Number")}
                   </Text>
                   <TextInput
                     value={roomNo}
@@ -590,7 +596,7 @@ export default function ProfileTab() {
                         />
                       ) : (
                         <Text className="font-bold text-primary-foreground-dark dark:text-primary-foreground">
-                          Save Floor and Room
+                          {t("profile.save_residence", "Save Floor and Room")}
                         </Text>
                       )}
                     </Pressable>
@@ -610,8 +616,8 @@ export default function ProfileTab() {
                   </Text>
                   {bag && (
                     <Text className="mt-0.5 text-xs text-muted-foreground dark:text-muted-foreground-dark">
-                      {t("qr_modal.version", "Version")} {bag.qr_version}
-                      {bag.is_revoked && "  ⚠ Revoked"}
+                      {t("qr_modal.version", "Version")} {(bag as any).qr_version}
+                      {(bag as any).is_revoked && "  ⚠ Revoked"}
                     </Text>
                   )}
                 </View>
@@ -648,7 +654,7 @@ export default function ProfileTab() {
                 <Pressable onPress={handleViewFullQR} className="items-center">
                   <View className="rounded-2xl bg-white p-5 shadow-sm">
                     <QRCode
-                      value={bag.qr_payload}
+                      value={(bag as any).qr_payload}
                       size={180}
                       color="#111"
                       backgroundColor="#fff"
@@ -667,27 +673,27 @@ export default function ProfileTab() {
                   </View>
                   <View className="mt-2 flex-row gap-2">
                     <Text className="text-xs text-muted-foreground dark:text-muted-foreground-dark">
-                      {bag.reg_no}
+                      {(bag as any).reg_no}
                     </Text>
-                    {bag.block && (
+                    {(bag as any).block && (
                       <>
                         <Text className="text-xs text-muted-foreground">·</Text>
                         <Text className="text-xs text-muted-foreground dark:text-muted-foreground-dark">
-                          {t("profile.hostel_block", "Block")} {bag.block}
+                          {t("profile.hostel_block", "Block")} {(bag as any).block}
                         </Text>
                       </>
                     )}
                   </View>
-                  {(bag.floor_no || bag.room_no) && (
+                  {((bag as any).floor_no || (bag as any).room_no) && (
                     <View className="mt-1 flex-row gap-2">
-                      {typeof bag.floor_no === "number" ? (
+                      {typeof (bag as any).floor_no === "number" ? (
                         <Text className="text-xs text-muted-foreground dark:text-muted-foreground-dark">
-                          Floor {bag.floor_no}
+                          {t("profile.floor", "Floor")} {(bag as any).floor_no}
                         </Text>
                       ) : null}
-                      {bag.room_no ? (
+                      {(bag as any).room_no ? (
                         <Text className="text-xs text-muted-foreground dark:text-muted-foreground-dark">
-                          Room {bag.room_no}
+                          {t("profile.room", "Room")} {(bag as any).room_no}
                         </Text>
                       ) : null}
                     </View>
@@ -799,7 +805,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <Text className="mb-0.5 text-xs font-bold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground-dark">
         {label}
       </Text>
-      <Text className="text-base font-medium text-card-foreground dark:text-card-foreground-dark">
+      <Text className="text-base font-extrabold text-card-foreground dark:text-card-foreground-dark">
         {value}
       </Text>
     </View>

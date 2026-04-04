@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { View, Text, useWindowDimensions } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -25,42 +26,9 @@ type TrackingStep = {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
 };
 
-const TRACKING_STEPS: TrackingStep[] = [
-  {
-    id: "intake",
-    title: "Order Placed",
-    statuses: ["created", "dropped_off"],
-    icon: "text-box-check-outline",
-  },
-  {
-    id: "washing",
-    title: "Washing",
-    statuses: ["washing", "wash_done"],
-    icon: "washing-machine",
-  },
-  {
-    id: "drying",
-    title: "Drying",
-    statuses: ["drying", "dry_done"],
-    icon: "tumble-dryer",
-  },
-  {
-    id: "ready",
-    title: "Ready",
-    statuses: ["ready_for_pickup"],
-    icon: "bag-checked",
-  },
-  {
-    id: "collected",
-    title: "Collected",
-    statuses: ["collected"],
-    icon: "check-circle",
-  },
-];
-
-export function getActiveStepIndex(status: string): number {
+export function getActiveStepIndex(status: string, steps: TrackingStep[]): number {
   const st = status as TrackingStatus;
-  const index = TRACKING_STEPS.findIndex((step) =>
+  const index = steps.findIndex((step) =>
     step.statuses.includes(st),
   );
   return index !== -1 ? index : 0;
@@ -79,7 +47,42 @@ export default function TrackingTimeline({
   showDetails = false,
   events = [],
 }: TrackingTimelineProps) {
-  const activeIndex = getActiveStepIndex(currentStatus);
+  const { t } = useTranslation();
+  
+  const trackingSteps: TrackingStep[] = useMemo(() => [
+    {
+      id: "intake",
+      title: t("tracking.order_placed", "Order Placed"),
+      statuses: ["created", "dropped_off"],
+      icon: "text-box-check-outline",
+    },
+    {
+      id: "washing",
+      title: t("tracking.washing", "Washing"),
+      statuses: ["washing", "wash_done"],
+      icon: "washing-machine",
+    },
+    {
+      id: "drying",
+      title: t("tracking.drying", "Drying"),
+      statuses: ["drying", "dry_done"],
+      icon: "tumble-dryer",
+    },
+    {
+      id: "ready",
+      title: t("tracking.ready", "Ready"),
+      statuses: ["ready_for_pickup"],
+      icon: "bag-checked",
+    },
+    {
+      id: "collected",
+      title: t("tracking.collected", "Collected"),
+      statuses: ["collected"],
+      icon: "check-circle",
+    },
+  ], [t]);
+
+  const activeIndex = getActiveStepIndex(currentStatus, trackingSteps);
   const isHorizontal = orientation === "horizontal";
   const { width } = useWindowDimensions();
 
@@ -130,7 +133,7 @@ export default function TrackingTimeline({
         isHorizontal ? "flex-row justify-between items-start" : "flex-col"
       }`}
     >
-      {TRACKING_STEPS.map((step, index) => {
+      {trackingSteps.map((step, index) => {
         const isActive = index === activeIndex;
         const isCompleted = index < activeIndex;
         const isPending = index > activeIndex;
@@ -159,7 +162,7 @@ export default function TrackingTimeline({
             }`}
           >
             {/* Horizontal Line Connector */}
-            {isHorizontal && index < TRACKING_STEPS.length - 1 && (
+            {isHorizontal && index < trackingSteps.length - 1 && (
               <View className="absolute top-5 left-[50%] w-full h-[2px] z-[-1] overflow-hidden">
                  <View className={`h-full w-full ${isCompleted ? 'bg-green-500' : 'bg-border dark:bg-border-dark border-dotted'}`} />
               </View>
@@ -177,7 +180,7 @@ export default function TrackingTimeline({
                 />
               </View>
               {/* Vertical Line Connector */}
-              {!isHorizontal && index < TRACKING_STEPS.length - 1 && (
+              {!isHorizontal && index < trackingSteps.length - 1 && (
                 <View
                   className={`w-[2px] flex-1 my-1 ${
                     isCompleted ? "bg-green-500" : "bg-border dark:bg-border-dark"
@@ -209,7 +212,7 @@ export default function TrackingTimeline({
                   ) : null}
                   {machineLabel ? (
                     <Text className="text-[11px] font-semibold text-foreground dark:text-foreground-dark mt-0.5">
-                      Machine: {machineLabel}
+                      {t("tracking.machine", "Machine: {{code}}", { code: machineLabel })}
                     </Text>
                   ) : null}
                 </View>

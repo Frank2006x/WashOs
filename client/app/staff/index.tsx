@@ -19,14 +19,14 @@ export default function StaffHomeScreen() {
 
   const phaseCards = useMemo(
     () => [
-      { key: "intake", label: "Intake Scan", icon: "inbox-arrow-down", desc: "Collect bag, start journey", color: "text-blue-500 dark:text-blue-400", bg: "bg-blue-500/10 dark:bg-blue-500/20" },
-      { key: "wash_start", label: "Wash Start", icon: "washing-machine", desc: "Assign a washer", color: "text-indigo-500 dark:text-indigo-400", bg: "bg-indigo-500/10 dark:bg-indigo-500/20" },
-      { key: "wash_finish", label: "Wash Finish", icon: "washing-machine-off", desc: "Complete wash cycle", color: "text-purple-500 dark:text-purple-400", bg: "bg-purple-500/10 dark:bg-purple-500/20" },
-      { key: "dry_start", label: "Dry Start", icon: "tumble-dryer", desc: "Assign a dryer", color: "text-orange-500 dark:text-orange-400", bg: "bg-orange-500/10 dark:bg-orange-500/20" },
-      { key: "dry_finish", label: "Dry Finish", icon: "tumble-dryer-off", desc: "Complete dry cycle", color: "text-amber-500 dark:text-amber-400", bg: "bg-amber-500/10 dark:bg-amber-500/20" },
-      { key: "ready", label: "Ready Scan", icon: "check-circle-outline", desc: "Assign pickup row", color: "text-emerald-500 dark:text-emerald-400", bg: "bg-emerald-500/10 dark:bg-emerald-500/20" },
+      { key: "intake", label: t("staff.phases.intake.label", "Intake Scan"), icon: "inbox-arrow-down", desc: t("staff.phases.intake.desc", "Collect bag, start journey"), color: "text-blue-500 dark:text-blue-400", bg: "bg-blue-500/10 dark:bg-blue-500/20" },
+      { key: "wash_start", label: t("staff.phases.wash_start.label", "Wash Start"), icon: "washing-machine", desc: t("staff.phases.wash_start.desc", "Assign a washer"), color: "text-indigo-500 dark:text-indigo-400", bg: "bg-indigo-500/10 dark:bg-indigo-500/20" },
+      { key: "wash_finish", label: t("staff.phases.wash_finish.label", "Wash Finish"), icon: "washing-machine-off", desc: t("staff.phases.wash_finish.desc", "Complete wash cycle"), color: "text-purple-500 dark:text-purple-400", bg: "bg-purple-500/10 dark:bg-purple-500/20" },
+      { key: "dry_start", label: t("staff.phases.dry_start.label", "Dry Start"), icon: "tumble-dryer", desc: t("staff.phases.dry_start.desc", "Assign a dryer"), color: "text-orange-500 dark:text-orange-400", bg: "bg-orange-500/10 dark:bg-orange-500/20" },
+      { key: "dry_finish", label: t("staff.phases.dry_finish.label", "Dry Finish"), icon: "tumble-dryer-off", desc: t("staff.phases.dry_finish.desc", "Complete dry cycle"), color: "text-amber-500 dark:text-amber-400", bg: "bg-amber-500/10 dark:bg-amber-500/20" },
+      { key: "ready", label: t("staff.phases.ready.label", "Ready Scan"), icon: "check-circle-outline", desc: t("staff.phases.ready.desc", "Assign pickup row"), color: "text-emerald-500 dark:text-emerald-400", bg: "bg-emerald-500/10 dark:bg-emerald-500/20" },
     ],
-    [],
+    [t],
   );
 
   return (
@@ -68,13 +68,13 @@ export default function StaffHomeScreen() {
           >
             <MaterialCommunityIcons name="barcode-scan" size={20} color="white" />
             <Text className="font-bold text-primary-foreground-dark dark:text-primary-foreground">
-              Open Scan Center
+              {t("staff.scan_center_button", "Open Scan Center")}
             </Text>
           </Pressable>
         </View>
 
         <Text className="mt-8 mb-4 ml-2 text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
-          Workflow Phases
+          {t("staff.workflow_phases", "Workflow Phases")}
         </Text>
         
         <View className="gap-3">
