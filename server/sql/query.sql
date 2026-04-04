@@ -410,6 +410,28 @@ FROM queries
 ORDER BY created_at ASC
 LIMIT $1 OFFSET $2;
 
+-- name: GetStaffRatingSummary :one
+SELECT
+  COALESCE(AVG(service_rating)::float8, 0) AS avg_service_rating,
+  COALESCE(AVG(handling_rating)::float8, 0) AS avg_handling_rating,
+  COALESCE(
+    AVG(
+      (
+        COALESCE(service_rating, 0) + COALESCE(handling_rating, 0)
+      )::float8 /
+      NULLIF(
+        (CASE WHEN service_rating IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN handling_rating IS NOT NULL THEN 1 ELSE 0 END),
+        0
+      )
+    ),
+    0
+  ) AS avg_overall_rating,
+  COUNT(*)::bigint AS rated_query_count
+FROM queries
+WHERE assigned_staff_user_id = $1
+  AND (service_rating IS NOT NULL OR handling_rating IS NOT NULL);
+
 -- name: SetQueryAcknowledged :one
 UPDATE queries
 SET status = 'acknowledged',

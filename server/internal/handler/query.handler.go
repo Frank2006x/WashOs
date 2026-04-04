@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -137,6 +138,39 @@ func parseOptionalRating(raw string, field string) (*int, error) {
 	}
 	value := parsed
 	return &value, nil
+}
+
+func interfaceToFloat64(v interface{}) float64 {
+	switch value := v.(type) {
+	case float64:
+		return value
+	case float32:
+		return float64(value)
+	case int64:
+		return float64(value)
+	case int32:
+		return float64(value)
+	case int:
+		return float64(value)
+	case string:
+		if parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64); err == nil {
+			return parsed
+		}
+	case []byte:
+		if parsed, err := strconv.ParseFloat(strings.TrimSpace(string(value)), 64); err == nil {
+			return parsed
+		}
+	}
+
+	if v == nil {
+		return 0
+	}
+
+	if parsed, err := strconv.ParseFloat(strings.TrimSpace(fmt.Sprint(v)), 64); err == nil {
+		return parsed
+	}
+
+	return 0
 }
 
 func (h *Handler) createQueryWorkflowEvent(
@@ -450,6 +484,26 @@ func (h *Handler) ListStaffQueries(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"queries": queries})
+}
+
+// GET /api/staff/queries/ratings/summary
+func (h *Handler) GetStaffRatingSummary(c fiber.Ctx) error {
+	_, actorUserID, err := h.requireStaff(c)
+	if err != nil {
+		return err
+	}
+
+	summary, err := h.Queries.GetStaffRatingSummary(c.Context(), actorUserID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to fetch staff rating summary")
+	}
+
+	return c.JSON(fiber.Map{
+		"avg_service_rating":  interfaceToFloat64(summary.AvgServiceRating),
+		"avg_handling_rating": interfaceToFloat64(summary.AvgHandlingRating),
+		"avg_overall_rating":  interfaceToFloat64(summary.AvgOverallRating),
+		"rated_query_count":   summary.RatedQueryCount,
+	})
 }
 
 // GET /api/staff/queries/:id

@@ -14,7 +14,12 @@ import {
 import QRCode from "react-native-qrcode-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
-import { BagResponse, studentService } from "@/services/api";
+import {
+  BagResponse,
+  StaffRatingSummaryResponse,
+  staffService,
+  studentService,
+} from "@/services/api";
 import { useTranslation } from "react-i18next";
 
 const BLOCKS = ["A", "B", "C", "D1", "D2", "E"] as const;
@@ -48,6 +53,9 @@ export default function ProfileTab() {
   const [roomNo, setRoomNo] = useState("");
   const [savingResidence, setSavingResidence] = useState(false);
   const [isEditingResidence, setIsEditingResidence] = useState(false);
+  const [staffRatingSummary, setStaffRatingSummary] =
+    useState<StaffRatingSummaryResponse | null>(null);
+  const [staffRatingsLoading, setStaffRatingsLoading] = useState(false);
 
   const isStudent = user?.role === "student";
 
@@ -82,6 +90,25 @@ export default function ProfileTab() {
   useEffect(() => {
     fetchBag();
   }, [fetchBag]);
+
+  const fetchStaffRatings = useCallback(async () => {
+    if (user?.role !== "laundry_staff") return;
+
+    setStaffRatingsLoading(true);
+    try {
+      const summary = await staffService.getRatingSummary();
+      setStaffRatingSummary(summary);
+    } catch (e: any) {
+      console.warn("staff ratings fetch failed", e?.message);
+      setStaffRatingSummary(null);
+    } finally {
+      setStaffRatingsLoading(false);
+    }
+  }, [user?.role]);
+
+  useEffect(() => {
+    fetchStaffRatings();
+  }, [fetchStaffRatings]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleLogout = async () => {
@@ -293,6 +320,42 @@ export default function ProfileTab() {
               <InfoRow
                 label={t("profile.phone", "Phone") as string}
                 value={profilePhone}
+              />
+            )}
+            {user?.role === "laundry_staff" && (
+              <InfoRow
+                label="Average Service Rating"
+                value={
+                  staffRatingsLoading
+                    ? "Loading..."
+                    : staffRatingSummary
+                      ? `${staffRatingSummary.avg_service_rating.toFixed(1)} / 5`
+                      : "N/A"
+                }
+              />
+            )}
+            {user?.role === "laundry_staff" && (
+              <InfoRow
+                label="Average Handling Rating"
+                value={
+                  staffRatingsLoading
+                    ? "Loading..."
+                    : staffRatingSummary
+                      ? `${staffRatingSummary.avg_handling_rating.toFixed(1)} / 5`
+                      : "N/A"
+                }
+              />
+            )}
+            {user?.role === "laundry_staff" && (
+              <InfoRow
+                label="Overall Rating"
+                value={
+                  staffRatingsLoading
+                    ? "Loading..."
+                    : staffRatingSummary
+                      ? `${staffRatingSummary.avg_overall_rating.toFixed(1)} / 5 (${staffRatingSummary.rated_query_count} queries)`
+                      : "N/A"
+                }
               />
             )}
             {profileRegNo && (

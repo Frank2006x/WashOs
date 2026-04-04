@@ -312,21 +312,34 @@ export default function StudentQueriesScreen() {
             className="mt-3 rounded-xl border border-border bg-background px-4 py-3 text-foreground dark:border-border-dark dark:bg-background-dark dark:text-foreground-dark"
           />
 
-          <View className="mt-3 flex-row gap-2">
-            <TextInput
-              value={serviceRating}
-              onChangeText={setServiceRating}
-              keyboardType="numeric"
-              placeholder="Service rating 1-5"
-              className="flex-1 rounded-xl border border-border bg-background px-4 py-3 text-foreground dark:border-border-dark dark:bg-background-dark dark:text-foreground-dark"
-            />
-            <TextInput
-              value={handlingRating}
-              onChangeText={setHandlingRating}
-              keyboardType="numeric"
-              placeholder="Handling rating 1-5"
-              className="flex-1 rounded-xl border border-border bg-background px-4 py-3 text-foreground dark:border-border-dark dark:bg-background-dark dark:text-foreground-dark"
-            />
+          <Text className="mt-4 text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
+            Ratings (1-5)
+          </Text>
+          <View className="mt-2 flex-row gap-2">
+            <View className="flex-1">
+              <Text className="mb-1 text-xs font-semibold text-card-foreground dark:text-card-foreground-dark">
+                Service Rating
+              </Text>
+              <TextInput
+                value={serviceRating}
+                onChangeText={setServiceRating}
+                keyboardType="numeric"
+                placeholder="1-5"
+                className="rounded-xl border border-border bg-background px-4 py-3 text-foreground dark:border-border-dark dark:bg-background-dark dark:text-foreground-dark"
+              />
+            </View>
+            <View className="flex-1">
+              <Text className="mb-1 text-xs font-semibold text-card-foreground dark:text-card-foreground-dark">
+                Handling Rating
+              </Text>
+              <TextInput
+                value={handlingRating}
+                onChangeText={setHandlingRating}
+                keyboardType="numeric"
+                placeholder="1-5"
+                className="rounded-xl border border-border bg-background px-4 py-3 text-foreground dark:border-border-dark dark:bg-background-dark dark:text-foreground-dark"
+              />
+            </View>
           </View>
 
           <Pressable

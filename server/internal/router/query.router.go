@@ -18,6 +18,7 @@ func SetupQueryRoutes(app *fiber.App, h *handler.Handler) {
 
 	staffQueryGroup := apiGroup.Group("/staff/queries", auth.AuthMiddleware)
 	staffQueryGroup.Get("", h.ListStaffQueries)
+	staffQueryGroup.Get("/ratings/summary", h.GetStaffRatingSummary)
 	staffQueryGroup.Get("/:id", h.GetStaffQuery)
 	staffQueryGroup.Post("/:id/acknowledge", h.AcknowledgeQuery)
 	staffQueryGroup.Post("/:id/reply", h.ReplyQuery)

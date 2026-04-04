@@ -295,6 +295,13 @@ export type QueryDetailResponse = {
   replies: QueryReplyRecord[];
 };
 
+export type StaffRatingSummaryResponse = {
+  avg_service_rating: number;
+  avg_handling_rating: number;
+  avg_overall_rating: number;
+  rated_query_count: number;
+};
+
 function normalizeMaybeText(value: unknown): string | undefined {
   if (typeof value === "string") {
     const trimmed = value.trim();
@@ -737,6 +744,13 @@ export const staffService = {
       params: { limit, offset },
     });
     return normalizeQueryListResponse(res.data);
+  },
+
+  async getRatingSummary(): Promise<StaffRatingSummaryResponse> {
+    const res = await api.get<StaffRatingSummaryResponse>(
+      "/api/staff/queries/ratings/summary",
+    );
+    return res.data;
   },
 
   async getQuery(queryID: string): Promise<QueryDetailResponse> {
