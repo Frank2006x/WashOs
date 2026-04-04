@@ -144,6 +144,50 @@ func (ns NullMachineType) Value() (driver.Value, error) {
 	return string(ns.MachineType), nil
 }
 
+type QueryStatus string
+
+const (
+	QueryStatusOpen         QueryStatus = "open"
+	QueryStatusAcknowledged QueryStatus = "acknowledged"
+	QueryStatusResolved     QueryStatus = "resolved"
+	QueryStatusClosed       QueryStatus = "closed"
+)
+
+func (e *QueryStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = QueryStatus(s)
+	case string:
+		*e = QueryStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for QueryStatus: %T", src)
+	}
+	return nil
+}
+
+type NullQueryStatus struct {
+	QueryStatus QueryStatus `json:"query_status"`
+	Valid       bool        `json:"valid"` // Valid is true if QueryStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullQueryStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.QueryStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.QueryStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullQueryStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.QueryStatus), nil
+}
+
 type UserRole string
 
 const (
@@ -189,16 +233,21 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 type WorkflowEventType string
 
 const (
-	WorkflowEventTypeBagInitialized WorkflowEventType = "bag_initialized"
-	WorkflowEventTypeQrRotated      WorkflowEventType = "qr_rotated"
-	WorkflowEventTypeReceived       WorkflowEventType = "received"
-	WorkflowEventTypeWashStarted    WorkflowEventType = "wash_started"
-	WorkflowEventTypeWashFinished   WorkflowEventType = "wash_finished"
-	WorkflowEventTypeDryStarted     WorkflowEventType = "dry_started"
-	WorkflowEventTypeDryFinished    WorkflowEventType = "dry_finished"
-	WorkflowEventTypeMarkedReady    WorkflowEventType = "marked_ready"
-	WorkflowEventTypeCollected      WorkflowEventType = "collected"
-	WorkflowEventTypeActionRejected WorkflowEventType = "action_rejected"
+	WorkflowEventTypeBagInitialized    WorkflowEventType = "bag_initialized"
+	WorkflowEventTypeQrRotated         WorkflowEventType = "qr_rotated"
+	WorkflowEventTypeReceived          WorkflowEventType = "received"
+	WorkflowEventTypeWashStarted       WorkflowEventType = "wash_started"
+	WorkflowEventTypeWashFinished      WorkflowEventType = "wash_finished"
+	WorkflowEventTypeDryStarted        WorkflowEventType = "dry_started"
+	WorkflowEventTypeDryFinished       WorkflowEventType = "dry_finished"
+	WorkflowEventTypeMarkedReady       WorkflowEventType = "marked_ready"
+	WorkflowEventTypeCollected         WorkflowEventType = "collected"
+	WorkflowEventTypeActionRejected    WorkflowEventType = "action_rejected"
+	WorkflowEventTypeQueryRaised       WorkflowEventType = "query_raised"
+	WorkflowEventTypeQueryAcknowledged WorkflowEventType = "query_acknowledged"
+	WorkflowEventTypeQueryReplied      WorkflowEventType = "query_replied"
+	WorkflowEventTypeQueryResolved     WorkflowEventType = "query_resolved"
+	WorkflowEventTypeQueryClosed       WorkflowEventType = "query_closed"
 )
 
 func (e *WorkflowEventType) Scan(src interface{}) error {
@@ -334,12 +383,40 @@ type PushToken struct {
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Query struct {
+	ID                  pgtype.UUID        `json:"id"`
+	BookingID           pgtype.UUID        `json:"booking_id"`
+	StudentID           pgtype.UUID        `json:"student_id"`
+	RaisedByUserID      pgtype.UUID        `json:"raised_by_user_id"`
+	AssignedStaffUserID pgtype.UUID        `json:"assigned_staff_user_id"`
+	Title               string             `json:"title"`
+	Description         string             `json:"description"`
+	ImageUrl            pgtype.Text        `json:"image_url"`
+	ServiceRating       pgtype.Int4        `json:"service_rating"`
+	HandlingRating      pgtype.Int4        `json:"handling_rating"`
+	Status              QueryStatus        `json:"status"`
+	ResolvedAt          pgtype.Timestamptz `json:"resolved_at"`
+	ClosedAt            pgtype.Timestamptz `json:"closed_at"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type QueryReply struct {
+	ID              pgtype.UUID        `json:"id"`
+	QueryID         pgtype.UUID        `json:"query_id"`
+	RepliedByUserID pgtype.UUID        `json:"replied_by_user_id"`
+	Message         string             `json:"message"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
 type Student struct {
 	ID        pgtype.UUID        `json:"id"`
 	UserID    pgtype.UUID        `json:"user_id"`
 	RegNo     string             `json:"reg_no"`
 	Name      string             `json:"name"`
 	Block     pgtype.Text        `json:"block"`
+	FloorNo   pgtype.Int4        `json:"floor_no"`
+	RoomNo    pgtype.Int4        `json:"room_no"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }

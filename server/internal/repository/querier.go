@@ -19,6 +19,7 @@ type Querier interface {
 	CreateLaundryStaff(ctx context.Context, arg CreateLaundryStaffParams) (LaundryStaff, error)
 	CreateMachineRun(ctx context.Context, arg CreateMachineRunParams) (MachineRun, error)
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error)
+	CreateQueryReply(ctx context.Context, arg CreateQueryReplyParams) (QueryReply, error)
 	CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	// =========================
@@ -26,6 +27,7 @@ type Querier interface {
 	// =========================
 	CreateWorkflowEvent(ctx context.Context, arg CreateWorkflowEventParams) (WorkflowEvent, error)
 	DeactivatePushToken(ctx context.Context, token string) error
+	EnsureDefaultLaundryService(ctx context.Context, name string) (LaundryService, error)
 	FinishMachineRun(ctx context.Context, arg FinishMachineRunParams) (MachineRun, error)
 	GetBagByID(ctx context.Context, id pgtype.UUID) (Bag, error)
 	GetBookingByID(ctx context.Context, id pgtype.UUID) (Booking, error)
@@ -37,11 +39,14 @@ type Querier interface {
 	// Staff signs in by phone.
 	GetLaundryStaffUserByPhone(ctx context.Context, phone string) (User, error)
 	GetMachineByID(ctx context.Context, id pgtype.UUID) (Machine, error)
+	GetQueryByID(ctx context.Context, id pgtype.UUID) (Query, error)
 	GetRunningMachineRunByMachineID(ctx context.Context, machineID pgtype.UUID) (MachineRun, error)
+	GetStaffRatingSummary(ctx context.Context, assignedStaffUserID pgtype.UUID) (GetStaffRatingSummaryRow, error)
 	GetStudentBagByStudentID(ctx context.Context, studentID pgtype.UUID) (Bag, error)
 	GetStudentBookings(ctx context.Context, arg GetStudentBookingsParams) ([]Booking, error)
 	GetStudentByID(ctx context.Context, id pgtype.UUID) (Student, error)
 	GetStudentByUserID(ctx context.Context, userID pgtype.UUID) (Student, error)
+	GetStudentQueryByID(ctx context.Context, arg GetStudentQueryByIDParams) (Query, error)
 	// =========================
 	// Auth and Profile Queries
 	// =========================
@@ -58,9 +63,16 @@ type Querier interface {
 	ListMachinesByType(ctx context.Context, machineType MachineType) ([]Machine, error)
 	ListNotificationsByUser(ctx context.Context, arg ListNotificationsByUserParams) ([]Notification, error)
 	ListProcessingBookings(ctx context.Context, arg ListProcessingBookingsParams) ([]Booking, error)
+	ListQueriesByRaisedByUser(ctx context.Context, arg ListQueriesByRaisedByUserParams) ([]Query, error)
+	ListQueryRepliesByQueryID(ctx context.Context, queryID pgtype.UUID) ([]QueryReply, error)
 	ListReadyBookings(ctx context.Context, arg ListReadyBookingsParams) ([]Booking, error)
+	ListStaffQueries(ctx context.Context, arg ListStaffQueriesParams) ([]Query, error)
 	ListUnreadNotificationsByUser(ctx context.Context, arg ListUnreadNotificationsByUserParams) ([]Notification, error)
 	MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) (Notification, error)
+	// =========================
+	// Student Query Queries
+	// =========================
+	RaiseQuery(ctx context.Context, arg RaiseQueryParams) (Query, error)
 	// Optional alias behavior.
 	RevokeStudentBagQRAliasRotate(ctx context.Context, studentID pgtype.UUID) (Bag, error)
 	RotateStudentBagQR(ctx context.Context, studentID pgtype.UUID) (Bag, error)
@@ -71,7 +83,11 @@ type Querier interface {
 	SetBookingReady(ctx context.Context, arg SetBookingReadyParams) (Booking, error)
 	SetBookingWashDone(ctx context.Context, arg SetBookingWashDoneParams) (Booking, error)
 	SetBookingWashing(ctx context.Context, arg SetBookingWashingParams) (Booking, error)
+	SetQueryAcknowledged(ctx context.Context, arg SetQueryAcknowledgedParams) (Query, error)
+	SetQueryClosed(ctx context.Context, arg SetQueryClosedParams) (Query, error)
+	SetQueryResolved(ctx context.Context, arg SetQueryResolvedParams) (Query, error)
 	UpdateBookingStatus(ctx context.Context, arg UpdateBookingStatusParams) (Booking, error)
+	UpdateStudentQueryRatings(ctx context.Context, arg UpdateStudentQueryRatingsParams) (Query, error)
 	// =========================
 	// Notification Queries
 	// =========================

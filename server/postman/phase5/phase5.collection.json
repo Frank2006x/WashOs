@@ -62,9 +62,7 @@
       ],
       "request": {
         "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"name\": \"{{student_name}}\",\n  \"reg_no\": \"{{student_reg_no}}\",\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}"
@@ -80,9 +78,7 @@
       "name": "Auth - Student Signin",
       "request": {
         "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}"
@@ -113,9 +109,7 @@
       "name": "Auth - Student Signin Wrong Password",
       "request": {
         "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{student_email}}\",\n  \"password\": \"wrong-password\"\n}"
@@ -201,9 +195,7 @@
       ],
       "request": {
         "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"name\": \"{{staff_name}}\",\n  \"phone\": \"{{staff_phone}}\",\n  \"email\": \"{{staff_email}}\",\n  \"password\": \"{{staff_password}}\"\n}"
@@ -219,9 +211,7 @@
       "name": "Auth - Staff Signin",
       "request": {
         "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"phone\": \"{{staff_phone}}\",\n  \"password\": \"{{staff_password}}\"\n}"

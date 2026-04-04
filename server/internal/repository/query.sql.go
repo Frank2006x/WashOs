@@ -194,10 +194,35 @@ func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotification
 	return i, err
 }
 
+const createQueryReply = `-- name: CreateQueryReply :one
+INSERT INTO query_replies (query_id, replied_by_user_id, message)
+VALUES ($1, $2, $3)
+RETURNING id, query_id, replied_by_user_id, message, created_at
+`
+
+type CreateQueryReplyParams struct {
+	QueryID         pgtype.UUID `json:"query_id"`
+	RepliedByUserID pgtype.UUID `json:"replied_by_user_id"`
+	Message         string      `json:"message"`
+}
+
+func (q *Queries) CreateQueryReply(ctx context.Context, arg CreateQueryReplyParams) (QueryReply, error) {
+	row := q.db.QueryRow(ctx, createQueryReply, arg.QueryID, arg.RepliedByUserID, arg.Message)
+	var i QueryReply
+	err := row.Scan(
+		&i.ID,
+		&i.QueryID,
+		&i.RepliedByUserID,
+		&i.Message,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createStudent = `-- name: CreateStudent :one
 INSERT INTO students (user_id, reg_no, name)
 VALUES ($1, $2, $3)
-RETURNING id, user_id, reg_no, name, block, created_at, updated_at
+RETURNING id, user_id, reg_no, name, block, floor_no, room_no, created_at, updated_at
 `
 
 type CreateStudentParams struct {
@@ -215,6 +240,8 @@ func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (S
 		&i.RegNo,
 		&i.Name,
 		&i.Block,
+		&i.FloorNo,
+		&i.RoomNo,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -316,6 +343,27 @@ WHERE token = $1
 func (q *Queries) DeactivatePushToken(ctx context.Context, token string) error {
 	_, err := q.db.Exec(ctx, deactivatePushToken, token)
 	return err
+}
+
+const ensureDefaultLaundryService = `-- name: EnsureDefaultLaundryService :one
+INSERT INTO laundry_services (name)
+VALUES ($1)
+ON CONFLICT (name)
+DO UPDATE SET updated_at = NOW()
+RETURNING id, name, phone, created_at, updated_at
+`
+
+func (q *Queries) EnsureDefaultLaundryService(ctx context.Context, name string) (LaundryService, error) {
+	row := q.db.QueryRow(ctx, ensureDefaultLaundryService, name)
+	var i LaundryService
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Phone,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const finishMachineRun = `-- name: FinishMachineRun :one
@@ -598,6 +646,36 @@ func (q *Queries) GetMachineByID(ctx context.Context, id pgtype.UUID) (Machine, 
 	return i, err
 }
 
+const getQueryByID = `-- name: GetQueryByID :one
+SELECT id, booking_id, student_id, raised_by_user_id, assigned_staff_user_id, title, description, image_url, service_rating, handling_rating, status, resolved_at, closed_at, created_at, updated_at
+FROM queries
+WHERE id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetQueryByID(ctx context.Context, id pgtype.UUID) (Query, error) {
+	row := q.db.QueryRow(ctx, getQueryByID, id)
+	var i Query
+	err := row.Scan(
+		&i.ID,
+		&i.BookingID,
+		&i.StudentID,
+		&i.RaisedByUserID,
+		&i.AssignedStaffUserID,
+		&i.Title,
+		&i.Description,
+		&i.ImageUrl,
+		&i.ServiceRating,
+		&i.HandlingRating,
+		&i.Status,
+		&i.ResolvedAt,
+		&i.ClosedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getRunningMachineRunByMachineID = `-- name: GetRunningMachineRunByMachineID :one
 SELECT id, booking_id, bag_id, machine_id, machine_type, status, started_by_user_id, ended_by_user_id, started_at, ended_at, created_at, updated_at
 FROM machine_runs
@@ -622,6 +700,48 @@ func (q *Queries) GetRunningMachineRunByMachineID(ctx context.Context, machineID
 		&i.EndedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getStaffRatingSummary = `-- name: GetStaffRatingSummary :one
+SELECT
+  COALESCE(AVG(service_rating)::float8, 0) AS avg_service_rating,
+  COALESCE(AVG(handling_rating)::float8, 0) AS avg_handling_rating,
+  COALESCE(
+    AVG(
+      (
+        COALESCE(service_rating, 0) + COALESCE(handling_rating, 0)
+      )::float8 /
+      NULLIF(
+        (CASE WHEN service_rating IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN handling_rating IS NOT NULL THEN 1 ELSE 0 END),
+        0
+      )
+    ),
+    0
+  ) AS avg_overall_rating,
+  COUNT(*)::bigint AS rated_query_count
+FROM queries
+WHERE assigned_staff_user_id = $1
+  AND (service_rating IS NOT NULL OR handling_rating IS NOT NULL)
+`
+
+type GetStaffRatingSummaryRow struct {
+	AvgServiceRating  interface{} `json:"avg_service_rating"`
+	AvgHandlingRating interface{} `json:"avg_handling_rating"`
+	AvgOverallRating  interface{} `json:"avg_overall_rating"`
+	RatedQueryCount   int64       `json:"rated_query_count"`
+}
+
+func (q *Queries) GetStaffRatingSummary(ctx context.Context, assignedStaffUserID pgtype.UUID) (GetStaffRatingSummaryRow, error) {
+	row := q.db.QueryRow(ctx, getStaffRatingSummary, assignedStaffUserID)
+	var i GetStaffRatingSummaryRow
+	err := row.Scan(
+		&i.AvgServiceRating,
+		&i.AvgHandlingRating,
+		&i.AvgOverallRating,
+		&i.RatedQueryCount,
 	)
 	return i, err
 }
@@ -700,7 +820,7 @@ func (q *Queries) GetStudentBookings(ctx context.Context, arg GetStudentBookings
 }
 
 const getStudentByID = `-- name: GetStudentByID :one
-SELECT id, user_id, reg_no, name, block, created_at, updated_at
+SELECT id, user_id, reg_no, name, block, floor_no, room_no, created_at, updated_at
 FROM students
 WHERE id = $1
 LIMIT 1
@@ -715,6 +835,8 @@ func (q *Queries) GetStudentByID(ctx context.Context, id pgtype.UUID) (Student, 
 		&i.RegNo,
 		&i.Name,
 		&i.Block,
+		&i.FloorNo,
+		&i.RoomNo,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -722,7 +844,7 @@ func (q *Queries) GetStudentByID(ctx context.Context, id pgtype.UUID) (Student, 
 }
 
 const getStudentByUserID = `-- name: GetStudentByUserID :one
-SELECT id, user_id, reg_no, name, block, created_at, updated_at
+SELECT id, user_id, reg_no, name, block, floor_no, room_no, created_at, updated_at
 FROM students
 WHERE user_id = $1
 LIMIT 1
@@ -737,6 +859,44 @@ func (q *Queries) GetStudentByUserID(ctx context.Context, userID pgtype.UUID) (S
 		&i.RegNo,
 		&i.Name,
 		&i.Block,
+		&i.FloorNo,
+		&i.RoomNo,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getStudentQueryByID = `-- name: GetStudentQueryByID :one
+SELECT id, booking_id, student_id, raised_by_user_id, assigned_staff_user_id, title, description, image_url, service_rating, handling_rating, status, resolved_at, closed_at, created_at, updated_at
+FROM queries
+WHERE id = $1
+  AND raised_by_user_id = $2
+LIMIT 1
+`
+
+type GetStudentQueryByIDParams struct {
+	ID             pgtype.UUID `json:"id"`
+	RaisedByUserID pgtype.UUID `json:"raised_by_user_id"`
+}
+
+func (q *Queries) GetStudentQueryByID(ctx context.Context, arg GetStudentQueryByIDParams) (Query, error) {
+	row := q.db.QueryRow(ctx, getStudentQueryByID, arg.ID, arg.RaisedByUserID)
+	var i Query
+	err := row.Scan(
+		&i.ID,
+		&i.BookingID,
+		&i.StudentID,
+		&i.RaisedByUserID,
+		&i.AssignedStaffUserID,
+		&i.Title,
+		&i.Description,
+		&i.ImageUrl,
+		&i.ServiceRating,
+		&i.HandlingRating,
+		&i.Status,
+		&i.ResolvedAt,
+		&i.ClosedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -984,6 +1144,89 @@ func (q *Queries) ListProcessingBookings(ctx context.Context, arg ListProcessing
 	return items, nil
 }
 
+const listQueriesByRaisedByUser = `-- name: ListQueriesByRaisedByUser :many
+SELECT id, booking_id, student_id, raised_by_user_id, assigned_staff_user_id, title, description, image_url, service_rating, handling_rating, status, resolved_at, closed_at, created_at, updated_at
+FROM queries
+WHERE raised_by_user_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListQueriesByRaisedByUserParams struct {
+	RaisedByUserID pgtype.UUID `json:"raised_by_user_id"`
+	Limit          int32       `json:"limit"`
+	Offset         int32       `json:"offset"`
+}
+
+func (q *Queries) ListQueriesByRaisedByUser(ctx context.Context, arg ListQueriesByRaisedByUserParams) ([]Query, error) {
+	rows, err := q.db.Query(ctx, listQueriesByRaisedByUser, arg.RaisedByUserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Query
+	for rows.Next() {
+		var i Query
+		if err := rows.Scan(
+			&i.ID,
+			&i.BookingID,
+			&i.StudentID,
+			&i.RaisedByUserID,
+			&i.AssignedStaffUserID,
+			&i.Title,
+			&i.Description,
+			&i.ImageUrl,
+			&i.ServiceRating,
+			&i.HandlingRating,
+			&i.Status,
+			&i.ResolvedAt,
+			&i.ClosedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listQueryRepliesByQueryID = `-- name: ListQueryRepliesByQueryID :many
+SELECT id, query_id, replied_by_user_id, message, created_at
+FROM query_replies
+WHERE query_id = $1
+ORDER BY created_at ASC
+`
+
+func (q *Queries) ListQueryRepliesByQueryID(ctx context.Context, queryID pgtype.UUID) ([]QueryReply, error) {
+	rows, err := q.db.Query(ctx, listQueryRepliesByQueryID, queryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []QueryReply
+	for rows.Next() {
+		var i QueryReply
+		if err := rows.Scan(
+			&i.ID,
+			&i.QueryID,
+			&i.RepliedByUserID,
+			&i.Message,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReadyBookings = `-- name: ListReadyBookings :many
 SELECT id, student_id, bag_id, status, received_at, wash_started_at, wash_finished_at, dry_started_at, dry_finished_at, ready_at, collected_at, row_no, notes, last_actor_user_id, created_at, updated_at
 FROM bookings
@@ -1021,6 +1264,54 @@ func (q *Queries) ListReadyBookings(ctx context.Context, arg ListReadyBookingsPa
 			&i.RowNo,
 			&i.Notes,
 			&i.LastActorUserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaffQueries = `-- name: ListStaffQueries :many
+SELECT id, booking_id, student_id, raised_by_user_id, assigned_staff_user_id, title, description, image_url, service_rating, handling_rating, status, resolved_at, closed_at, created_at, updated_at
+FROM queries
+ORDER BY created_at ASC
+LIMIT $1 OFFSET $2
+`
+
+type ListStaffQueriesParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListStaffQueries(ctx context.Context, arg ListStaffQueriesParams) ([]Query, error) {
+	rows, err := q.db.Query(ctx, listStaffQueries, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Query
+	for rows.Next() {
+		var i Query
+		if err := rows.Scan(
+			&i.ID,
+			&i.BookingID,
+			&i.StudentID,
+			&i.RaisedByUserID,
+			&i.AssignedStaffUserID,
+			&i.Title,
+			&i.Description,
+			&i.ImageUrl,
+			&i.ServiceRating,
+			&i.HandlingRating,
+			&i.Status,
+			&i.ResolvedAt,
+			&i.ClosedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -1108,6 +1399,68 @@ func (q *Queries) MarkNotificationRead(ctx context.Context, arg MarkNotification
 		&i.ReadAt,
 		&i.SentAt,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const raiseQuery = `-- name: RaiseQuery :one
+
+INSERT INTO queries (
+  booking_id,
+  student_id,
+  raised_by_user_id,
+  title,
+  description,
+  image_url,
+  service_rating,
+  handling_rating
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, booking_id, student_id, raised_by_user_id, assigned_staff_user_id, title, description, image_url, service_rating, handling_rating, status, resolved_at, closed_at, created_at, updated_at
+`
+
+type RaiseQueryParams struct {
+	BookingID      pgtype.UUID `json:"booking_id"`
+	StudentID      pgtype.UUID `json:"student_id"`
+	RaisedByUserID pgtype.UUID `json:"raised_by_user_id"`
+	Title          string      `json:"title"`
+	Description    string      `json:"description"`
+	ImageUrl       pgtype.Text `json:"image_url"`
+	ServiceRating  pgtype.Int4 `json:"service_rating"`
+	HandlingRating pgtype.Int4 `json:"handling_rating"`
+}
+
+// =========================
+// Student Query Queries
+// =========================
+func (q *Queries) RaiseQuery(ctx context.Context, arg RaiseQueryParams) (Query, error) {
+	row := q.db.QueryRow(ctx, raiseQuery,
+		arg.BookingID,
+		arg.StudentID,
+		arg.RaisedByUserID,
+		arg.Title,
+		arg.Description,
+		arg.ImageUrl,
+		arg.ServiceRating,
+		arg.HandlingRating,
+	)
+	var i Query
+	err := row.Scan(
+		&i.ID,
+		&i.BookingID,
+		&i.StudentID,
+		&i.RaisedByUserID,
+		&i.AssignedStaffUserID,
+		&i.Title,
+		&i.Description,
+		&i.ImageUrl,
+		&i.ServiceRating,
+		&i.HandlingRating,
+		&i.Status,
+		&i.ResolvedAt,
+		&i.ClosedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -1438,6 +1791,119 @@ func (q *Queries) SetBookingWashing(ctx context.Context, arg SetBookingWashingPa
 	return i, err
 }
 
+const setQueryAcknowledged = `-- name: SetQueryAcknowledged :one
+UPDATE queries
+SET status = 'acknowledged',
+    assigned_staff_user_id = $2,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, booking_id, student_id, raised_by_user_id, assigned_staff_user_id, title, description, image_url, service_rating, handling_rating, status, resolved_at, closed_at, created_at, updated_at
+`
+
+type SetQueryAcknowledgedParams struct {
+	ID                  pgtype.UUID `json:"id"`
+	AssignedStaffUserID pgtype.UUID `json:"assigned_staff_user_id"`
+}
+
+func (q *Queries) SetQueryAcknowledged(ctx context.Context, arg SetQueryAcknowledgedParams) (Query, error) {
+	row := q.db.QueryRow(ctx, setQueryAcknowledged, arg.ID, arg.AssignedStaffUserID)
+	var i Query
+	err := row.Scan(
+		&i.ID,
+		&i.BookingID,
+		&i.StudentID,
+		&i.RaisedByUserID,
+		&i.AssignedStaffUserID,
+		&i.Title,
+		&i.Description,
+		&i.ImageUrl,
+		&i.ServiceRating,
+		&i.HandlingRating,
+		&i.Status,
+		&i.ResolvedAt,
+		&i.ClosedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setQueryClosed = `-- name: SetQueryClosed :one
+UPDATE queries
+SET status = 'closed',
+    assigned_staff_user_id = $2,
+    closed_at = NOW(),
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, booking_id, student_id, raised_by_user_id, assigned_staff_user_id, title, description, image_url, service_rating, handling_rating, status, resolved_at, closed_at, created_at, updated_at
+`
+
+type SetQueryClosedParams struct {
+	ID                  pgtype.UUID `json:"id"`
+	AssignedStaffUserID pgtype.UUID `json:"assigned_staff_user_id"`
+}
+
+func (q *Queries) SetQueryClosed(ctx context.Context, arg SetQueryClosedParams) (Query, error) {
+	row := q.db.QueryRow(ctx, setQueryClosed, arg.ID, arg.AssignedStaffUserID)
+	var i Query
+	err := row.Scan(
+		&i.ID,
+		&i.BookingID,
+		&i.StudentID,
+		&i.RaisedByUserID,
+		&i.AssignedStaffUserID,
+		&i.Title,
+		&i.Description,
+		&i.ImageUrl,
+		&i.ServiceRating,
+		&i.HandlingRating,
+		&i.Status,
+		&i.ResolvedAt,
+		&i.ClosedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setQueryResolved = `-- name: SetQueryResolved :one
+UPDATE queries
+SET status = 'resolved',
+    assigned_staff_user_id = $2,
+    resolved_at = NOW(),
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, booking_id, student_id, raised_by_user_id, assigned_staff_user_id, title, description, image_url, service_rating, handling_rating, status, resolved_at, closed_at, created_at, updated_at
+`
+
+type SetQueryResolvedParams struct {
+	ID                  pgtype.UUID `json:"id"`
+	AssignedStaffUserID pgtype.UUID `json:"assigned_staff_user_id"`
+}
+
+func (q *Queries) SetQueryResolved(ctx context.Context, arg SetQueryResolvedParams) (Query, error) {
+	row := q.db.QueryRow(ctx, setQueryResolved, arg.ID, arg.AssignedStaffUserID)
+	var i Query
+	err := row.Scan(
+		&i.ID,
+		&i.BookingID,
+		&i.StudentID,
+		&i.RaisedByUserID,
+		&i.AssignedStaffUserID,
+		&i.Title,
+		&i.Description,
+		&i.ImageUrl,
+		&i.ServiceRating,
+		&i.HandlingRating,
+		&i.Status,
+		&i.ResolvedAt,
+		&i.ClosedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateBookingStatus = `-- name: UpdateBookingStatus :one
 UPDATE bookings
 SET status = $2,
@@ -1471,6 +1937,51 @@ func (q *Queries) UpdateBookingStatus(ctx context.Context, arg UpdateBookingStat
 		&i.RowNo,
 		&i.Notes,
 		&i.LastActorUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateStudentQueryRatings = `-- name: UpdateStudentQueryRatings :one
+UPDATE queries
+SET service_rating = $3,
+    handling_rating = $4,
+    updated_at = NOW()
+WHERE id = $1
+  AND raised_by_user_id = $2
+RETURNING id, booking_id, student_id, raised_by_user_id, assigned_staff_user_id, title, description, image_url, service_rating, handling_rating, status, resolved_at, closed_at, created_at, updated_at
+`
+
+type UpdateStudentQueryRatingsParams struct {
+	ID             pgtype.UUID `json:"id"`
+	RaisedByUserID pgtype.UUID `json:"raised_by_user_id"`
+	ServiceRating  pgtype.Int4 `json:"service_rating"`
+	HandlingRating pgtype.Int4 `json:"handling_rating"`
+}
+
+func (q *Queries) UpdateStudentQueryRatings(ctx context.Context, arg UpdateStudentQueryRatingsParams) (Query, error) {
+	row := q.db.QueryRow(ctx, updateStudentQueryRatings,
+		arg.ID,
+		arg.RaisedByUserID,
+		arg.ServiceRating,
+		arg.HandlingRating,
+	)
+	var i Query
+	err := row.Scan(
+		&i.ID,
+		&i.BookingID,
+		&i.StudentID,
+		&i.RaisedByUserID,
+		&i.AssignedStaffUserID,
+		&i.Title,
+		&i.Description,
+		&i.ImageUrl,
+		&i.ServiceRating,
+		&i.HandlingRating,
+		&i.Status,
+		&i.ResolvedAt,
+		&i.ClosedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

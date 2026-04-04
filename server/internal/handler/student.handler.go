@@ -8,6 +8,7 @@ import (
 	dbgen "Frank2006x/washos/internal/repository"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -17,11 +18,36 @@ type BagResponse struct {
 	StudentID     string  `json:"student_id"`
 	RegNo         string  `json:"reg_no"`
 	Name          string  `json:"name"`
-	Block         *string `json:"block,omitempty"`
+	Block         *string `json:"block"`
+	FloorNo       *int32  `json:"floor_no"`
+	RoomNo        *int32  `json:"room_no"`
 	QRVersion     int32   `json:"qr_version"`
 	QRPayload     string  `json:"qr_payload"` // JSON string to encode into a QR image on client
 	IsRevoked     bool    `json:"is_revoked"`
 	LastRotatedAt *string `json:"last_rotated_at,omitempty"`
+}
+
+type StudentResidenceResponse struct {
+	Block   *string `json:"block"`
+	FloorNo *int32  `json:"floor_no"`
+	RoomNo  *int32  `json:"room_no"`
+}
+
+func buildStudentResidenceResponse(student dbgen.Student) StudentResidenceResponse {
+	resp := StudentResidenceResponse{}
+	if student.Block.Valid {
+		b := student.Block.String
+		resp.Block = &b
+	}
+	if student.FloorNo.Valid {
+		f := student.FloorNo.Int32
+		resp.FloorNo = &f
+	}
+	if student.RoomNo.Valid {
+		r := student.RoomNo.Int32
+		resp.RoomNo = &r
+	}
+	return resp
 }
 
 func pgUUIDToStr(u pgtype.UUID) string {
@@ -39,6 +65,7 @@ func buildQRPayload(bag dbgen.Bag, student dbgen.Student) string {
 	if student.Block.Valid {
 		block = student.Block.String
 	}
+
 	payload := map[string]interface{}{
 		"bag_id":     pgUUIDToStr(bag.ID),
 		"student_id": pgUUIDToStr(bag.StudentID),
@@ -46,6 +73,13 @@ func buildQRPayload(bag dbgen.Bag, student dbgen.Student) string {
 		"block":      block,
 		"version":    bag.QrVersion,
 		"iat":        time.Now().Unix(),
+	}
+
+	if student.FloorNo.Valid {
+		payload["floor_no"] = student.FloorNo.Int32
+	}
+	if student.RoomNo.Valid {
+		payload["room_no"] = student.RoomNo.Int32
 	}
 	
 	// Create a cryptographic JWT signature so nobody can manually forge a QR containing a bumped version number 
@@ -66,6 +100,14 @@ func (h *Handler) buildBagResponse(bag dbgen.Bag, student dbgen.Student) BagResp
 	if student.Block.Valid {
 		b := student.Block.String
 		resp.Block = &b
+	}
+	if student.FloorNo.Valid {
+		f := student.FloorNo.Int32
+		resp.FloorNo = &f
+	}
+	if student.RoomNo.Valid {
+		r := student.RoomNo.Int32
+		resp.RoomNo = &r
 	}
 	if bag.LastRotatedAt.Valid {
 		t := bag.LastRotatedAt.Time.UTC().Format(time.RFC3339)
@@ -90,7 +132,10 @@ func (h *Handler) requireStudent(c fiber.Ctx) (dbgen.Student, error) {
 	// Resolve student profile (includes role check — only students have a students row)
 	student, err := h.Queries.GetStudentByUserID(c.Context(), pgUserID)
 	if err != nil {
-		return dbgen.Student{}, fiber.NewError(fiber.StatusForbidden, "student profile not found")
+		if err == pgx.ErrNoRows {
+			return dbgen.Student{}, fiber.NewError(fiber.StatusForbidden, "student profile not found")
+		}
+		return dbgen.Student{}, fiber.NewError(fiber.StatusInternalServerError, "failed to fetch student profile")
 	}
 
 	return student, nil
@@ -226,4 +271,56 @@ func (h *Handler) UpdateMyBlock(c fiber.Ctx) error {
 	}
 
 	return c.JSON(student)
+}
+
+// GET /api/student/me/location
+// Returns student's block, floor_no and room_no.
+func (h *Handler) GetMyResidence(c fiber.Ctx) error {
+	student, err := h.requireStudent(c)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(buildStudentResidenceResponse(student))
+}
+
+// PATCH /api/student/me/location
+// Updates student's floor_no and room_no. Body: { "floor_no": 3, "room_no": 302 }
+func (h *Handler) UpdateMyResidence(c fiber.Ctx) error {
+	userIDStr, ok := c.Locals("user_id").(string)
+	if !ok || userIDStr == "" {
+		return fiber.ErrUnauthorized
+	}
+
+	var pgUserID pgtype.UUID
+	if err := pgUserID.Scan(userIDStr); err != nil {
+		return fiber.ErrUnauthorized
+	}
+
+	var body struct {
+		FloorNo *int32  `json:"floor_no"`
+		RoomNo  *int32  `json:"room_no"`
+	}
+	if err := c.Bind().JSON(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	if body.FloorNo == nil && body.RoomNo == nil {
+		return fiber.NewError(fiber.StatusBadRequest, "floor_no or room_no is required")
+	}
+
+	if body.FloorNo != nil && *body.FloorNo <= 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "floor_no must be greater than 0")
+	}
+
+	if body.RoomNo != nil && *body.RoomNo <= 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "room_no must be greater than 0")
+	}
+
+	student, err := h.Queries.UpdateStudentResidence(c.Context(), pgUserID, body.FloorNo, body.RoomNo)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "failed to update student residence")
+	}
+
+	return c.JSON(buildStudentResidenceResponse(student))
 }

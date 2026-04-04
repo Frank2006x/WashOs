@@ -58,7 +58,8 @@ export default function StudentTabsLayout() {
       <Tabs.Screen
         name="orders"
         options={{
-          title: t("tabs.orders") as string,
+          title: "Laundry",
+          href: null,
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons
               name="local-laundry-service"
@@ -74,6 +75,15 @@ export default function StudentTabsLayout() {
           title: t("tabs.profile") as string,
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="person" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="queries"
+        options={{
+          title: "Queries",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="support-agent" color={color} size={size} />
           ),
         }}
       />

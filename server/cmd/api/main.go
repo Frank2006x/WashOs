@@ -44,12 +44,30 @@ func main() {
 	router.SetupAuthRoutes(app, Handler)
 	router.SetupStudentRoutes(app, Handler)
 	router.SetupPhase2Routes(app, Handler)
+	router.SetupQueryRoutes(app, Handler)
+
+	app.Get("/", func(c fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"name":    "WashOs API",
+			"status":  "ok",
+			"message": "Use /api/* endpoints",
+		})
+	})
 
 	app.Get("/ping", func(c fiber.Ctx) error {
 		return c.SendString("pong")
 	})
 
-	if err := app.Listen(":3001"); err != nil {
+	app.Get("/healthz", func(c fiber.Ctx) error {
+		return c.SendString("ok")
+	})
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3001"
+	}
+
+	if err := app.Listen(":" + port); err != nil {
 		log.Fatal(err)
 	}
 

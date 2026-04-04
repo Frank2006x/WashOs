@@ -19,4 +19,6 @@ func SetupStudentRoutes(app *fiber.App, h *handler.Handler) {
 	studentGroup.Post("/bag/init", h.InitMyBag)
 	studentGroup.Post("/bag/rotate", h.RotateMyBag)
 	studentGroup.Patch("/block", h.UpdateMyBlock)
+	studentGroup.Get("/location", h.GetMyResidence)
+	studentGroup.Patch("/location", h.UpdateMyResidence)
 }

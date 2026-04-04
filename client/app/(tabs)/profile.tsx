@@ -8,12 +8,18 @@ import {
   Pressable,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
-import { BagResponse, studentService } from "@/services/api";
+import {
+  BagResponse,
+  StaffRatingSummaryResponse,
+  staffService,
+  studentService,
+} from "@/services/api";
 import { useTranslation } from "react-i18next";
 
 const BLOCKS = ["A", "B", "C", "D1", "D2", "E"] as const;
@@ -43,6 +49,13 @@ export default function ProfileTab() {
   const [selectedBlock, setSelectedBlock] = useState<Block | null>(null);
   const [savingBlock, setSavingBlock] = useState(false);
   const [isEditingBlock, setIsEditingBlock] = useState(false);
+  const [floorNo, setFloorNo] = useState("");
+  const [roomNo, setRoomNo] = useState("");
+  const [savingResidence, setSavingResidence] = useState(false);
+  const [isEditingResidence, setIsEditingResidence] = useState(false);
+  const [staffRatingSummary, setStaffRatingSummary] =
+    useState<StaffRatingSummaryResponse | null>(null);
+  const [staffRatingsLoading, setStaffRatingsLoading] = useState(false);
 
   const isStudent = user?.role === "student";
 
@@ -51,9 +64,22 @@ export default function ProfileTab() {
     if (!isStudent) return;
     setBagLoading(true);
     try {
-      const data = await studentService.getMyBag();
+      const [data, residence] = await Promise.all([
+        studentService.getMyBag(),
+        studentService.getMyResidence(),
+      ]);
       setBag(data); // null = no bag yet
       if (data?.block) setSelectedBlock(data.block as Block);
+      if (typeof residence?.floor_no === "number") {
+        setFloorNo(String(residence.floor_no));
+      } else {
+        setFloorNo("");
+      }
+      if (typeof residence?.room_no === "number") {
+        setRoomNo(String(residence.room_no));
+      } else {
+        setRoomNo("");
+      }
     } catch (e: any) {
       console.warn("bag fetch failed", e?.message);
     } finally {
@@ -64,6 +90,25 @@ export default function ProfileTab() {
   useEffect(() => {
     fetchBag();
   }, [fetchBag]);
+
+  const fetchStaffRatings = useCallback(async () => {
+    if (user?.role !== "laundry_staff") return;
+
+    setStaffRatingsLoading(true);
+    try {
+      const summary = await staffService.getRatingSummary();
+      setStaffRatingSummary(summary);
+    } catch (e: any) {
+      console.warn("staff ratings fetch failed", e?.message);
+      setStaffRatingSummary(null);
+    } finally {
+      setStaffRatingsLoading(false);
+    }
+  }, [user?.role]);
+
+  useEffect(() => {
+    fetchStaffRatings();
+  }, [fetchStaffRatings]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleLogout = async () => {
@@ -76,7 +121,12 @@ export default function ProfileTab() {
       const created = await studentService.initMyBag();
       setBag(created);
     } catch (e: any) {
-      Alert.alert(t("common.error", "Error"), e?.response?.data || e?.message || t("profile.err_gen_qr", "Failed to generate QR"));
+      Alert.alert(
+        t("common.error", "Error"),
+        e?.response?.data ||
+          e?.message ||
+          t("profile.err_gen_qr", "Failed to generate QR"),
+      );
     } finally {
       setGenerating(false);
     }
@@ -84,7 +134,10 @@ export default function ProfileTab() {
 
   const handleSaveBlock = async () => {
     if (!selectedBlock) {
-      Alert.alert(t("profile.block_req", "Block required"), t("profile.err_select_block", "Please select your hostel block."));
+      Alert.alert(
+        t("profile.block_req", "Block required"),
+        t("profile.err_select_block", "Please select your hostel block."),
+      );
       return;
     }
     setSavingBlock(true);
@@ -93,9 +146,17 @@ export default function ProfileTab() {
       // Re-fetch to sync QR payload (block is embedded in it)
       await fetchBag();
       setIsEditingBlock(false);
-      Alert.alert(t("common.saved", "Saved"), `${t("profile.block_set_to", "Block set to")} ${selectedBlock}`);
+      Alert.alert(
+        t("common.saved", "Saved"),
+        `${t("profile.block_set_to", "Block set to")} ${selectedBlock}`,
+      );
     } catch (e: any) {
-      Alert.alert(t("common.error", "Error"), e?.response?.data || e?.message || t("profile.err_save_block", "Failed to save block"));
+      Alert.alert(
+        t("common.error", "Error"),
+        e?.response?.data ||
+          e?.message ||
+          t("profile.err_save_block", "Failed to save block"),
+      );
     } finally {
       setSavingBlock(false);
     }
@@ -104,7 +165,10 @@ export default function ProfileTab() {
   const handleRotateQR = () => {
     Alert.alert(
       t("profile.rotate_qr", "Rotate QR Code"),
-      t("profile.rotate_qr_desc", "This will invalidate your current QR code and generate a new one. Continue?"),
+      t(
+        "profile.rotate_qr_desc",
+        "This will invalidate your current QR code and generate a new one. Continue?",
+      ),
       [
         { text: t("common.cancel", "Cancel"), style: "cancel" },
         {
@@ -116,15 +180,47 @@ export default function ProfileTab() {
               const updated = await studentService.rotateMyQR();
               setBag(updated);
             } catch (e: any) {
-              const msg = e?.response?.data || e?.message || t("profile.err_rotate", "Failed to rotate");
+              const msg =
+                e?.response?.data ||
+                e?.message ||
+                t("profile.err_rotate", "Failed to rotate");
               Alert.alert(t("common.error", "Error"), msg);
             } finally {
               setRotating(false);
             }
           },
         },
-      ]
+      ],
     );
+  };
+
+  const handleSaveResidence = async () => {
+    const parsedFloor = Number.parseInt(floorNo.trim(), 10);
+    const parsedRoom = Number.parseInt(roomNo.trim(), 10);
+
+    if (!Number.isInteger(parsedFloor) || parsedFloor <= 0) {
+      Alert.alert("Validation", "Please enter a valid floor number.");
+      return;
+    }
+    if (!Number.isInteger(parsedRoom) || parsedRoom <= 0) {
+      Alert.alert("Validation", "Please enter a valid room number.");
+      return;
+    }
+
+    setSavingResidence(true);
+    try {
+      await studentService.updateMyResidence(parsedFloor, parsedRoom);
+      await fetchBag();
+      setIsEditingResidence(false);
+      Alert.alert("Saved", "Floor and room updated.");
+    } catch (e: any) {
+      Alert.alert(
+        t("common.error", "Error"),
+        e?.response?.data?.error || e?.message || "Failed to save residence.",
+      );
+    } finally {
+      setSavingResidence(false);
+    }
   };
 
   const handleViewFullQR = () => {
@@ -136,6 +232,9 @@ export default function ProfileTab() {
         reg_no: bag.reg_no,
         name: bag.name,
         block: bag.block ?? "",
+        floor_no:
+          typeof bag.floor_no === "number" ? String(bag.floor_no) : floorNo,
+        room_no: typeof bag.room_no === "number" ? String(bag.room_no) : roomNo,
         version: String(bag.qr_version),
       },
     });
@@ -144,23 +243,32 @@ export default function ProfileTab() {
   // ── Helpers ───────────────────────────────────────────────────────────────
   const getRoleLabel = (role: string) => {
     switch (role) {
-      case "student": return "Student";
-      case "laundry_staff": return "Laundry Staff";
-      default: return role;
+      case "student":
+        return "Student";
+      case "laundry_staff":
+        return "Laundry Staff";
+      default:
+        return role;
     }
   };
 
   const getRoleIcon = (role: string): any => {
     switch (role) {
-      case "student": return "school";
-      case "laundry_staff": return "local-laundry-service";
-      default: return "person";
+      case "student":
+        return "school";
+      case "laundry_staff":
+        return "local-laundry-service";
+      default:
+        return "person";
     }
   };
 
   const profileName = profile?.name || "User";
-  const profilePhone = user?.role === "laundry_staff" ? (profile as any)?.phone : null;
-  const profileRegNo = user?.role === "student" ? (profile as any)?.reg_no : null;
+  const profilePhone =
+    user?.role === "laundry_staff" ? (profile as any)?.phone : null;
+  const profileRegNo =
+    user?.role === "student" ? (profile as any)?.reg_no : null;
+  const hasResidence = floorNo.trim().length > 0 || roomNo.trim().length > 0;
 
   if (loading) {
     return (
@@ -171,7 +279,10 @@ export default function ProfileTab() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background dark:bg-background-dark" edges={["top"]}>
+    <SafeAreaView
+      className="flex-1 bg-background dark:bg-background-dark"
+      edges={["top"]}
+    >
       <ScrollView showsVerticalScrollIndicator={false}>
         <View className="px-6 py-6">
           <Text className="text-3xl font-extrabold text-card-foreground dark:text-card-foreground-dark">
@@ -201,10 +312,72 @@ export default function ProfileTab() {
               </View>
             </View>
 
-            <InfoRow label={t("profile.email", "Email") as string} value={user?.email ?? ""} />
-            {profilePhone && <InfoRow label={t("profile.phone", "Phone") as string} value={profilePhone} />}
-            {profileRegNo && <InfoRow label={t("profile.reg_no", "Reg No") as string} value={profileRegNo} />}
-            <InfoRow label={t("profile.member_since", "Member Since") as string} value={user?.created_at ? new Date(user.created_at).toLocaleDateString() : "N/A"} />
+            <InfoRow
+              label={t("profile.email", "Email") as string}
+              value={user?.email ?? ""}
+            />
+            {profilePhone && (
+              <InfoRow
+                label={t("profile.phone", "Phone") as string}
+                value={profilePhone}
+              />
+            )}
+            {user?.role === "laundry_staff" && (
+              <InfoRow
+                label="Average Service Rating"
+                value={
+                  staffRatingsLoading
+                    ? "Loading..."
+                    : staffRatingSummary
+                      ? `${staffRatingSummary.avg_service_rating.toFixed(1)} / 5`
+                      : "N/A"
+                }
+              />
+            )}
+            {user?.role === "laundry_staff" && (
+              <InfoRow
+                label="Average Handling Rating"
+                value={
+                  staffRatingsLoading
+                    ? "Loading..."
+                    : staffRatingSummary
+                      ? `${staffRatingSummary.avg_handling_rating.toFixed(1)} / 5`
+                      : "N/A"
+                }
+              />
+            )}
+            {user?.role === "laundry_staff" && (
+              <InfoRow
+                label="Overall Rating"
+                value={
+                  staffRatingsLoading
+                    ? "Loading..."
+                    : staffRatingSummary
+                      ? `${staffRatingSummary.avg_overall_rating.toFixed(1)} / 5 (${staffRatingSummary.rated_query_count} queries)`
+                      : "N/A"
+                }
+              />
+            )}
+            {profileRegNo && (
+              <InfoRow
+                label={t("profile.reg_no", "Reg No") as string}
+                value={profileRegNo}
+              />
+            )}
+            {isStudent && floorNo ? (
+              <InfoRow label="Floor" value={floorNo} />
+            ) : null}
+            {isStudent && roomNo ? (
+              <InfoRow label="Room" value={roomNo} />
+            ) : null}
+            <InfoRow
+              label={t("profile.member_since", "Member Since") as string}
+              value={
+                user?.created_at
+                  ? new Date(user.created_at).toLocaleDateString()
+                  : "N/A"
+              }
+            />
           </View>
 
           {/* ── Block Picker (students only) ── */}
@@ -300,10 +473,124 @@ export default function ProfileTab() {
                       className="flex-1 items-center justify-center rounded-full bg-primary-dark py-3 active:opacity-85 dark:bg-primary disabled:opacity-50"
                     >
                       {savingBlock ? (
-                        <ActivityIndicator color={isDark ? "#1a1f37" : "#f9f5ee"} size="small" />
+                        <ActivityIndicator
+                          color={isDark ? "#1a1f37" : "#f9f5ee"}
+                          size="small"
+                        />
                       ) : (
                         <Text className="font-bold text-primary-foreground-dark dark:text-primary-foreground">
                           {t("profile.save_block", "Save Block")}
+                        </Text>
+                      )}
+                    </Pressable>
+                  </View>
+                </>
+              )}
+            </View>
+          )}
+
+          {isStudent && (
+            <View className="mt-5 rounded-2xl bg-card p-5 dark:bg-card-dark">
+              <View className="mb-4 flex-row items-center justify-between">
+                <Text className="text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
+                  Residence Info
+                </Text>
+                {hasResidence && !isEditingResidence && (
+                  <Pressable
+                    onPress={() => setIsEditingResidence(true)}
+                    className="flex-row items-center gap-1 rounded-full border border-border px-3 py-1.5 dark:border-border-dark"
+                    hitSlop={6}
+                  >
+                    <MaterialIcons
+                      name="edit"
+                      size={14}
+                      color={isDark ? "#b7b5a9" : "#83827d"}
+                    />
+                    <Text className="text-xs font-bold text-muted-foreground dark:text-muted-foreground-dark">
+                      {t("common.edit", "Edit")}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+
+              {hasResidence && !isEditingResidence ? (
+                <View className="flex-row items-center">
+                  <View className="mr-3 h-12 w-12 items-center justify-center rounded-full bg-primary-dark/10 dark:bg-primary/10">
+                    <MaterialIcons
+                      name="meeting-room"
+                      size={22}
+                      color="#293975"
+                    />
+                  </View>
+                  <View>
+                    <Text className="text-sm font-medium text-muted-foreground dark:text-muted-foreground-dark">
+                      Current Residence
+                    </Text>
+                    <Text className="text-base font-extrabold text-card-foreground dark:text-card-foreground-dark">
+                      Floor {floorNo || "-"} • Room {roomNo || "-"}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <Text className="mb-4 text-sm text-muted-foreground dark:text-muted-foreground-dark">
+                    Add your floor and room so laundry delivery is accurate.
+                  </Text>
+
+                  <Text className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground-dark">
+                    Floor Number
+                  </Text>
+                  <TextInput
+                    value={floorNo}
+                    onChangeText={setFloorNo}
+                    keyboardType="number-pad"
+                    placeholder="e.g. 3"
+                    className="rounded-xl border border-border bg-background px-4 py-3 text-card-foreground dark:border-border-dark dark:bg-background-dark dark:text-card-foreground-dark"
+                  />
+
+                  <Text className="mb-1 mt-4 text-xs font-bold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground-dark">
+                    Room Number
+                  </Text>
+                  <TextInput
+                    value={roomNo}
+                    onChangeText={(value) =>
+                      setRoomNo(value.replace(/[^0-9]/g, ""))
+                    }
+                    keyboardType="number-pad"
+                    inputMode="numeric"
+                    placeholder="e.g. 312"
+                    className="rounded-xl border border-border bg-background px-4 py-3 text-card-foreground dark:border-border-dark dark:bg-background-dark dark:text-card-foreground-dark"
+                  />
+
+                  <View className="mt-4 flex-row gap-2">
+                    {hasResidence && isEditingResidence ? (
+                      <Pressable
+                        onPress={() => {
+                          setIsEditingResidence(false);
+                          fetchBag();
+                        }}
+                        disabled={savingResidence}
+                        className="flex-1 items-center rounded-full bg-secondary py-3 active:opacity-85 dark:bg-secondary-dark disabled:opacity-50"
+                      >
+                        <Text className="font-bold text-secondary-foreground dark:text-secondary-foreground-dark">
+                          {t("common.cancel", "Cancel")}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+
+                    <Pressable
+                      onPress={handleSaveResidence}
+                      disabled={savingResidence}
+                      className="flex-1 items-center justify-center rounded-full bg-primary-dark py-3 active:opacity-85 dark:bg-primary disabled:opacity-50"
+                    >
+                      {savingResidence ? (
+                        <ActivityIndicator
+                          color={isDark ? "#1a1f37" : "#f9f5ee"}
+                          size="small"
+                        />
+                      ) : (
+                        <Text className="font-bold text-primary-foreground-dark dark:text-primary-foreground">
+                          Save Floor and Room
                         </Text>
                       )}
                     </Pressable>
@@ -391,6 +678,20 @@ export default function ProfileTab() {
                       </>
                     )}
                   </View>
+                  {(bag.floor_no || bag.room_no) && (
+                    <View className="mt-1 flex-row gap-2">
+                      {typeof bag.floor_no === "number" ? (
+                        <Text className="text-xs text-muted-foreground dark:text-muted-foreground-dark">
+                          Floor {bag.floor_no}
+                        </Text>
+                      ) : null}
+                      {bag.room_no ? (
+                        <Text className="text-xs text-muted-foreground dark:text-muted-foreground-dark">
+                          Room {bag.room_no}
+                        </Text>
+                      ) : null}
+                    </View>
+                  )}
                 </Pressable>
               ) : (
                 <View className="items-center py-8 gap-3">
@@ -403,7 +704,10 @@ export default function ProfileTab() {
                     {t("profile.no_bag_title", "No QR code yet")}
                   </Text>
                   <Text className="text-xs text-center text-muted-foreground dark:text-muted-foreground-dark px-4">
-                    {t("profile.no_bag_desc", "Generate a unique QR for your laundry bag.\nLaundry staff will scan this when collecting your clothes.")}
+                    {t(
+                      "profile.no_bag_desc",
+                      "Generate a unique QR for your laundry bag.\nLaundry staff will scan this when collecting your clothes.",
+                    )}
                   </Text>
                   <Pressable
                     onPress={handleGenerateQR}
@@ -411,10 +715,16 @@ export default function ProfileTab() {
                     className="mt-1 flex-row items-center gap-2 rounded-full bg-primary-dark px-6 py-3 active:opacity-85 dark:bg-primary disabled:opacity-50"
                   >
                     {generating ? (
-                      <ActivityIndicator color={isDark ? "#1a1f37" : "#f9f5ee"} />
+                      <ActivityIndicator
+                        color={isDark ? "#1a1f37" : "#f9f5ee"}
+                      />
                     ) : (
                       <>
-                        <MaterialIcons name="qr-code-2" size={18} color={isDark ? "#1a1f37" : "#f9f5ee"} />
+                        <MaterialIcons
+                          name="qr-code-2"
+                          size={18}
+                          color={isDark ? "#1a1f37" : "#f9f5ee"}
+                        />
                         <Text className="font-bold text-primary-foreground-dark dark:text-primary-foreground">
                           {t("profile.generate_qr", "Generate My QR")}
                         </Text>

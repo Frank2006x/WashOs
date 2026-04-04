@@ -8,6 +8,7 @@ import {
   Animated,
   ScrollView,
   ActivityIndicator,
+  LayoutChangeEvent,
 } from "react-native";
 import {
   CameraView,
@@ -23,6 +24,8 @@ export interface QRScannerProps {
   title: string;
   /** Callback fired with parsed data (or raw string if not JSON) after a scan */
   onScan?: (data: any) => void;
+  /** When false, hides raw/parsed payload details and only shows scan status. */
+  showScanDetails?: boolean;
   /**
    * When true (default), scanning is disabled after the first successful scan
    * until the user taps "Scan Again".
@@ -37,6 +40,7 @@ type ScanState = "loading" | "denied" | "scanning" | "success" | "error";
 const QRScanner: React.FC<QRScannerProps> = ({
   title,
   onScan,
+  showScanDetails = true,
   singleScan = true,
 }) => {
   const { t } = useTranslation();
@@ -52,6 +56,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
   const [scannedData, setScannedData] = useState<any>(null);
   const [rawValue, setRawValue] = useState<string>("");
   const [parseError, setParseError] = useState(false);
+  const [scanFrameSize, setScanFrameSize] = useState(240);
 
   const hasScanned = useRef(false);
   const flashAnim = useRef(new Animated.Value(0)).current;
@@ -117,12 +122,21 @@ const QRScanner: React.FC<QRScannerProps> = ({
     setScanState("scanning");
   }, [flashAnim]);
 
+  const handleCameraLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    const next = Math.floor(Math.min(width, height) * 0.72);
+    const clamped = Math.max(150, Math.min(next, 320));
+    setScanFrameSize(clamped);
+  }, []);
+
   // ─── Render: Loading ─────────────────────────────────────────────────────
   if (scanState === "loading" || permission === null) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.statusText}>{t("scanner.requesting_permission")}</Text>
+        <Text style={styles.statusText}>
+          {t("scanner.requesting_permission")}
+        </Text>
       </View>
     );
   }
@@ -133,9 +147,7 @@ const QRScanner: React.FC<QRScannerProps> = ({
       <View style={styles.centered}>
         <Text style={styles.icon}>🚫</Text>
         <Text style={styles.deniedTitle}>{t("scanner.camera_denied")}</Text>
-        <Text style={styles.deniedBody}>
-          {t("scanner.enable_camera_desc")}
-        </Text>
+        <Text style={styles.deniedBody}>{t("scanner.enable_camera_desc")}</Text>
         <TouchableOpacity
           style={styles.primaryButton}
           onPress={() =>
@@ -144,7 +156,9 @@ const QRScanner: React.FC<QRScannerProps> = ({
             )
           }
         >
-          <Text style={styles.primaryButtonText}>{t("scanner.grant_permission")}</Text>
+          <Text style={styles.primaryButtonText}>
+            {t("scanner.grant_permission")}
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -167,27 +181,29 @@ const QRScanner: React.FC<QRScannerProps> = ({
 
       {/* Camera / Result area */}
       {scanState === "scanning" ? (
-        <View style={styles.cameraWrapper}>
+        <View style={styles.cameraWrapper} onLayout={handleCameraLayout}>
           <CameraView
             style={styles.camera}
             facing="back"
             barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
             onBarcodeScanned={handleBarCodeScanned}
-          >
-            {/* Scan overlay */}
-            <View style={styles.overlay}>
-              <View style={styles.scanFrame}>
-                {/* Corner accents */}
-                <View style={[styles.corner, styles.cornerTL]} />
-                <View style={[styles.corner, styles.cornerTR]} />
-                <View style={[styles.corner, styles.cornerBL]} />
-                <View style={[styles.corner, styles.cornerBR]} />
-              </View>
-              <Text style={styles.overlayHint}>
-                {t("scanner.align_qr")}
-              </Text>
+          />
+          {/* Scan overlay */}
+          <View style={[styles.overlay, StyleSheet.absoluteFill]}>
+            <View
+              style={[
+                styles.scanFrame,
+                { width: scanFrameSize, height: scanFrameSize },
+              ]}
+            >
+              {/* Corner accents */}
+              <View style={[styles.corner, styles.cornerTL]} />
+              <View style={[styles.corner, styles.cornerTR]} />
+              <View style={[styles.corner, styles.cornerBL]} />
+              <View style={[styles.corner, styles.cornerBR]} />
             </View>
-          </CameraView>
+            <Text style={styles.overlayHint}>{t("scanner.align_qr")}</Text>
+          </View>
 
           {/* Flash success overlay */}
           <Animated.View
@@ -209,30 +225,45 @@ const QRScanner: React.FC<QRScannerProps> = ({
             ]}
           >
             <Text style={styles.statusBadgeText}>
-              {parseError ? t("scanner.invalid_format_badge") : t("scanner.scan_success_badge")}
+              {parseError
+                ? t("scanner.invalid_format_badge")
+                : t("scanner.scan_success_badge")}
             </Text>
           </View>
 
-          {/* Raw value */}
-          <View style={styles.card}>
-            <Text style={styles.cardLabel}>{t("scanner.raw_value")}</Text>
-            <Text style={styles.cardRaw} selectable>
-              {rawValue}
-            </Text>
-          </View>
+          {showScanDetails ? (
+            <>
+              <View style={styles.card}>
+                <Text style={styles.cardLabel}>{t("scanner.raw_value")}</Text>
+                <Text style={styles.cardRaw} selectable>
+                  {rawValue}
+                </Text>
+              </View>
 
-          {/* Parsed data (only when valid JSON) */}
-          {!parseError && scannedData !== null && (
+              {!parseError && scannedData !== null ? (
+                <View style={styles.card}>
+                  <Text style={styles.cardLabel}>
+                    {t("scanner.parsed_json")}
+                  </Text>
+                  {renderParsedData(scannedData, 0, t)}
+                </View>
+              ) : null}
+
+              {parseError ? (
+                <View style={[styles.card, styles.cardError]}>
+                  <Text style={styles.cardErrorText}>
+                    {t("scanner.invalid_json_data")}
+                  </Text>
+                </View>
+              ) : null}
+            </>
+          ) : (
             <View style={styles.card}>
-              <Text style={styles.cardLabel}>{t("scanner.parsed_json")}</Text>
-              {renderParsedData(scannedData, 0, t)}
-            </View>
-          )}
-
-          {parseError && (
-            <View style={[styles.card, styles.cardError]}>
-              <Text style={styles.cardErrorText}>
-                {t("scanner.invalid_json_data")}
+              <Text style={styles.cardLabel}>{t("scanner.status")}</Text>
+              <Text style={styles.valuePrimitive}>
+                {parseError
+                  ? t("scanner.scan_failed_retry")
+                  : t("scanner.scan_processed")}
               </Text>
             </View>
           )}
@@ -246,7 +277,9 @@ const QRScanner: React.FC<QRScannerProps> = ({
             style={styles.primaryButton}
             onPress={handleScanAgain}
           >
-            <Text style={styles.primaryButtonText}>{t("scanner.scan_again")}</Text>
+            <Text style={styles.primaryButtonText}>
+              {t("scanner.scan_again")}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -360,8 +393,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.45)",
   },
   scanFrame: {
-    width: 240,
-    height: 240,
     position: "relative",
   },
   corner: {

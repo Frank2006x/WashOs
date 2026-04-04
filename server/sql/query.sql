@@ -55,6 +55,13 @@ FROM laundry_services
 ORDER BY created_at ASC
 LIMIT 1;
 
+-- name: EnsureDefaultLaundryService :one
+INSERT INTO laundry_services (name)
+VALUES ($1)
+ON CONFLICT (name)
+DO UPDATE SET updated_at = NOW()
+RETURNING *;
+
 -- =========================
 -- Bag Queries
 -- =========================
@@ -349,3 +356,115 @@ SET is_read = TRUE,
 WHERE id = $1
   AND recipient_user_id = $2
 RETURNING *;
+
+-- =========================
+-- Student Query Queries
+-- =========================
+
+-- name: RaiseQuery :one
+INSERT INTO queries (
+  booking_id,
+  student_id,
+  raised_by_user_id,
+  title,
+  description,
+  image_url,
+  service_rating,
+  handling_rating
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING *;
+
+-- name: ListQueriesByRaisedByUser :many
+SELECT *
+FROM queries
+WHERE raised_by_user_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: GetStudentQueryByID :one
+SELECT *
+FROM queries
+WHERE id = $1
+  AND raised_by_user_id = $2
+LIMIT 1;
+
+-- name: GetQueryByID :one
+SELECT *
+FROM queries
+WHERE id = $1
+LIMIT 1;
+
+-- name: UpdateStudentQueryRatings :one
+UPDATE queries
+SET service_rating = $3,
+    handling_rating = $4,
+    updated_at = NOW()
+WHERE id = $1
+  AND raised_by_user_id = $2
+RETURNING *;
+
+-- name: ListStaffQueries :many
+SELECT *
+FROM queries
+ORDER BY created_at ASC
+LIMIT $1 OFFSET $2;
+
+-- name: GetStaffRatingSummary :one
+SELECT
+  COALESCE(AVG(service_rating)::float8, 0) AS avg_service_rating,
+  COALESCE(AVG(handling_rating)::float8, 0) AS avg_handling_rating,
+  COALESCE(
+    AVG(
+      (
+        COALESCE(service_rating, 0) + COALESCE(handling_rating, 0)
+      )::float8 /
+      NULLIF(
+        (CASE WHEN service_rating IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN handling_rating IS NOT NULL THEN 1 ELSE 0 END),
+        0
+      )
+    ),
+    0
+  ) AS avg_overall_rating,
+  COUNT(*)::bigint AS rated_query_count
+FROM queries
+WHERE assigned_staff_user_id = $1
+  AND (service_rating IS NOT NULL OR handling_rating IS NOT NULL);
+
+-- name: SetQueryAcknowledged :one
+UPDATE queries
+SET status = 'acknowledged',
+    assigned_staff_user_id = $2,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING *;
+
+-- name: SetQueryResolved :one
+UPDATE queries
+SET status = 'resolved',
+    assigned_staff_user_id = $2,
+    resolved_at = NOW(),
+    updated_at = NOW()
+WHERE id = $1
+RETURNING *;
+
+-- name: SetQueryClosed :one
+UPDATE queries
+SET status = 'closed',
+    assigned_staff_user_id = $2,
+    closed_at = NOW(),
+    updated_at = NOW()
+WHERE id = $1
+RETURNING *;
+
+-- name: CreateQueryReply :one
+INSERT INTO query_replies (query_id, replied_by_user_id, message)
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: ListQueryRepliesByQueryID :many
+SELECT *
+FROM query_replies
+WHERE query_id = $1
+ORDER BY created_at ASC;

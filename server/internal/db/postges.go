@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -20,6 +21,10 @@ func NewPool(ctx context.Context) (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid DATABASE_URL: %w", err)
 	}
+
+	// Neon pooler + schema changes can invalidate prepared statement plans.
+	// Use simple protocol to avoid statement-cache plan mismatch errors.
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {

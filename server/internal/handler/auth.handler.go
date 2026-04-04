@@ -7,6 +7,7 @@ import (
 	dbgen "Frank2006x/washos/internal/repository"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/jackc/pgx/v5"
 )
 
 type Handler struct {
@@ -77,6 +78,13 @@ func (h *Handler) StudentSignIn(c fiber.Ctx) error {
 
 	if !auth.VerifyPassword(user.Password, body.Password) {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
+	}
+
+	if _, err := h.Queries.GetStudentByUserID(c.Context(), user.ID); err != nil {
+		if err == pgx.ErrNoRows {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Student profile not found for this account"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load student profile"})
 	}
 
 	accessToken, refreshToken, err := auth.GenerateTokenPair(user.ID.String())
@@ -204,7 +212,14 @@ func (h *Handler) StaffSignUp(c fiber.Ctx) error {
 
 	service, err := h.Queries.GetFirstLaundryService(c.Context())
 	if err != nil {
-		return c.Status(fiber.StatusPreconditionFailed).JSON(fiber.Map{"error": "No laundry service configured"})
+		if err == pgx.ErrNoRows {
+			service, err = h.Queries.EnsureDefaultLaundryService(c.Context(), "WashOs Main Laundry")
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to initialize default laundry service"})
+			}
+		} else {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load laundry service"})
+		}
 	}
 
 	email := body.Email
