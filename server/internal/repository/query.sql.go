@@ -197,7 +197,7 @@ func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotification
 const createStudent = `-- name: CreateStudent :one
 INSERT INTO students (user_id, reg_no, name)
 VALUES ($1, $2, $3)
-RETURNING id, user_id, reg_no, name, block, created_at, updated_at
+RETURNING id, user_id, reg_no, name, block, floor_no, room_no, created_at, updated_at
 `
 
 type CreateStudentParams struct {
@@ -215,6 +215,8 @@ func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (S
 		&i.RegNo,
 		&i.Name,
 		&i.Block,
+		&i.FloorNo,
+		&i.RoomNo,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -700,7 +702,7 @@ func (q *Queries) GetStudentBookings(ctx context.Context, arg GetStudentBookings
 }
 
 const getStudentByID = `-- name: GetStudentByID :one
-SELECT id, user_id, reg_no, name, block, created_at, updated_at
+SELECT id, user_id, reg_no, name, block, floor_no, room_no, created_at, updated_at
 FROM students
 WHERE id = $1
 LIMIT 1
@@ -715,6 +717,8 @@ func (q *Queries) GetStudentByID(ctx context.Context, id pgtype.UUID) (Student, 
 		&i.RegNo,
 		&i.Name,
 		&i.Block,
+		&i.FloorNo,
+		&i.RoomNo,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -722,7 +726,7 @@ func (q *Queries) GetStudentByID(ctx context.Context, id pgtype.UUID) (Student, 
 }
 
 const getStudentByUserID = `-- name: GetStudentByUserID :one
-SELECT id, user_id, reg_no, name, block, created_at, updated_at
+SELECT id, user_id, reg_no, name, block, floor_no, room_no, created_at, updated_at
 FROM students
 WHERE user_id = $1
 LIMIT 1
@@ -737,6 +741,8 @@ func (q *Queries) GetStudentByUserID(ctx context.Context, userID pgtype.UUID) (S
 		&i.RegNo,
 		&i.Name,
 		&i.Block,
+		&i.FloorNo,
+		&i.RoomNo,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

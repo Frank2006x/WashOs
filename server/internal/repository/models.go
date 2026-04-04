@@ -340,6 +340,8 @@ type Student struct {
 	RegNo     string             `json:"reg_no"`
 	Name      string             `json:"name"`
 	Block     pgtype.Text        `json:"block"`
+	FloorNo   pgtype.Int4        `json:"floor_no"`
+	RoomNo    pgtype.Int4        `json:"room_no"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }

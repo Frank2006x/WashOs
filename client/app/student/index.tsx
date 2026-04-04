@@ -15,6 +15,8 @@ import {
   BookingEventsResponse,
 } from "@/services/api";
 import { SafeAreaView } from "react-native-safe-area-context";
+import TrackingTimeline from "@/components/TrackingTimeline";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 type EventRecord = Record<string, any>;
 
@@ -183,7 +185,7 @@ export default function StudentHomeScreen() {
             </Text>
           ) : (
             <Pressable
-              className={`mt-3 rounded-2xl border border-border bg-background dark:border-border-dark dark:bg-background-dark ${isCompact ? "px-3 py-3" : "px-4 py-4"}`}
+              className={`mt-4 rounded-3xl border border-border bg-background dark:border-border-dark dark:bg-background-dark ${isCompact ? "p-4" : "p-5"} shadow-sm`}
               onPress={() =>
                 router.push({
                   pathname: "/booking/[id]",
@@ -191,42 +193,30 @@ export default function StudentHomeScreen() {
                 })
               }
             >
-              <Text className="text-base font-bold text-card-foreground dark:text-card-foreground-dark">
-                {statusLabel(String(activeBooking.status || ""))}
-              </Text>
-              <Text className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground-dark">
-                #{String(activeBooking.id || "").slice(0, 8)}
-              </Text>
-              {activeBooking.row_no ? (
-                <Text className="mt-1 text-xs font-semibold text-card-foreground dark:text-card-foreground-dark">
-                  Pickup Row: {String(activeBooking.row_no)}
-                </Text>
-              ) : null}
-              <View className={`mt-4 ${isCompact ? "gap-1.5" : "gap-2"}`}>
-                {(eventsByBooking[String(activeBooking.id)] || [])
-                  .slice(-4)
-                  .map((evt) => {
-                    const machineLabel = getMachineLabel(evt);
-                    return (
-                      <View
-                        key={String(evt.id)}
-                        className={`rounded-xl border border-border dark:border-border-dark ${isCompact ? "px-2.5 py-2" : "px-3 py-2.5"}`}
-                      >
-                        <Text className="text-xs font-semibold text-card-foreground dark:text-card-foreground-dark">
-                          {statusLabel(String(evt.event_type || ""))}
-                        </Text>
-                        {machineLabel ? (
-                          <Text className="mt-1 text-[11px] font-semibold text-card-foreground dark:text-card-foreground-dark">
-                            Machine: {machineLabel}
-                          </Text>
-                        ) : null}
-                        <Text className="mt-1 text-[11px] text-muted-foreground dark:text-muted-foreground-dark">
-                          {formatTime(String(evt.created_at || ""))}
-                        </Text>
-                      </View>
-                    );
-                  })}
+              <View className="flex-row items-center justify-between mb-6">
+                <View>
+                  <Text className="text-sm font-bold text-card-foreground dark:text-card-foreground-dark">
+                    Order #{String(activeBooking.id || "").slice(0, 8)}
+                  </Text>
+                  <Text className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground-dark">
+                    Tap to view detailed timeline
+                  </Text>
+                </View>
+                {activeBooking.row_no ? (
+                  <View className="bg-primary/10 dark:bg-primary-dark/20 px-3 py-1.5 rounded-full">
+                    <Text className="text-[11px] font-extrabold text-primary dark:text-primary-dark uppercase">
+                      Row: {String(activeBooking.row_no)}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
+
+              <TrackingTimeline
+                currentStatus={String(activeBooking.status || "")}
+                orientation="horizontal"
+                showDetails={true}
+                events={eventsByBooking[String(activeBooking.id)] || []}
+              />
             </Pressable>
           )}
         </View>
@@ -243,7 +233,7 @@ export default function StudentHomeScreen() {
               No past bookings yet.
             </Text>
           ) : (
-            <View className="mt-3 gap-3">
+            <View className="mt-4 gap-4">
               {bookingCards.map((booking) => (
                 <Pressable
                   key={booking.id}
@@ -253,44 +243,26 @@ export default function StudentHomeScreen() {
                       params: { id: booking.id },
                     })
                   }
-                  className={`rounded-2xl border border-border bg-background dark:border-border-dark dark:bg-background-dark ${isCompact ? "px-3 py-3" : "px-4 py-4"}`}
+                  className={`flex-row items-center justify-between rounded-3xl border border-border bg-background dark:border-border-dark dark:bg-background-dark ${isCompact ? "p-4" : "p-5"}`}
                 >
-                  <Text className="text-sm font-bold text-card-foreground dark:text-card-foreground-dark">
-                    {statusLabel(booking.status)}
-                  </Text>
-                  <Text className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground-dark">
-                    #{booking.id.slice(0, 8)}
-                  </Text>
-                  {booking.row_no ? (
-                    <Text className="mt-1 text-xs font-semibold text-card-foreground dark:text-card-foreground-dark">
-                      Pickup Row: {String(booking.row_no)}
-                    </Text>
-                  ) : null}
-                  <View className={`mt-4 ${isCompact ? "gap-1.5" : "gap-2"}`}>
-                    {(eventsByBooking[booking.id] || [])
-                      .slice(-4)
-                      .map((evt) => {
-                        const machineLabel = getMachineLabel(evt);
-                        return (
-                          <View
-                            key={String(evt.id)}
-                            className={`rounded-xl border border-border dark:border-border-dark ${isCompact ? "px-2.5 py-2" : "px-3 py-2.5"}`}
-                          >
-                            <Text className="text-xs font-semibold text-card-foreground dark:text-card-foreground-dark">
-                              {statusLabel(String(evt.event_type || ""))}
-                            </Text>
-                            {machineLabel ? (
-                              <Text className="mt-1 text-[11px] font-semibold text-card-foreground dark:text-card-foreground-dark">
-                                Machine: {machineLabel}
-                              </Text>
-                            ) : null}
-                            <Text className="mt-1 text-[11px] text-muted-foreground dark:text-muted-foreground-dark">
-                              {formatTime(String(evt.created_at || ""))}
-                            </Text>
-                          </View>
-                        );
-                      })}
+                  <View className="flex-row items-center flex-1">
+                    <View className="w-12 h-12 rounded-full bg-muted dark:bg-muted-dark items-center justify-center mr-4">
+                      <MaterialCommunityIcons
+                        name={booking.status === "collected" ? "check-circle" : "history"}
+                        size={24}
+                        color={booking.status === "collected" ? "#22c55e" : "#a1a1aa"}
+                      />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-sm font-bold text-card-foreground dark:text-card-foreground-dark">
+                        {statusLabel(booking.status)}
+                      </Text>
+                      <Text className="mt-0.5 text-xs text-muted-foreground dark:text-muted-foreground-dark">
+                        #{booking.id.slice(0, 8)} {booking.row_no ? `• Row: ${booking.row_no}` : ""}
+                      </Text>
+                    </View>
                   </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color="#a1a1aa" />
                 </Pressable>
               ))}
             </View>

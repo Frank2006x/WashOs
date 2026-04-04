@@ -91,5 +91,22 @@
   "qr_modal": {
     "version": "संस्करण",
     "help_text": "अपना लांड्री बैग देते समय यह QR दिखाएं।\nअगर आपको लगता है कि आपका QR किसी और के पास है, तो इसे बदलें।"
+  },
+  "scanner": {
+    "requesting_permission": "कैमरा अनुमति का अनुरोध हो रहा है...",
+    "camera_denied": "कैमरा एक्सेस अस्वीकृत",
+    "enable_camera_desc": "कृपया QR स्कैनर का उपयोग करने के लिए अपनी डिवाइस सेटिंग्स में कैमरा अनुमति सक्षम करें।",
+    "grant_permission": "अनुमति दें",
+    "point_to_scan": "स्कैन करने के लिए QR कोड पर पॉइंट करें",
+    "invalid_format": "अमान्य QR प्रारूप",
+    "scan_complete": "स्कैन पूरा हुआ!",
+    "align_qr": "फ्रेम के भीतर QR कोड संरेखित करें",
+    "invalid_format_badge": "⚠️  अमान्य QR प्रारूप",
+    "scan_success_badge": "✅  स्कैन सफल",
+    "raw_value": "कच्चा मूल्य",
+    "parsed_json": "पार्स किया गया JSON",
+    "invalid_json_data": "स्कैन किए गए QR कोड में मान्य JSON डेटा नहीं है।",
+    "scan_again": "↩ फिर से स्कैन करें",
+    "null_value": "शून्य"
   }
 }

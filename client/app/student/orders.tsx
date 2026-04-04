@@ -14,6 +14,8 @@ import { useRouter } from "expo-router";
 import { BookingRecord, studentService } from "@/services/api";
 import QRScanner from "@/components/QRScanner";
 import { SafeAreaView } from "react-native-safe-area-context";
+import TrackingTimeline from "@/components/TrackingTimeline";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 type ActiveBookingState = Record<string, any> | null;
 
@@ -185,29 +187,45 @@ export default function StudentOrdersScreen() {
         ) : null}
 
         {!error && activeBooking ? (
-          <View
-            className={`mt-6 rounded-3xl bg-card dark:bg-card-dark ${isCompact ? "p-4" : "p-5"}`}
+          <Pressable
+            className={`mt-6 rounded-3xl border border-border bg-background dark:border-border-dark dark:bg-background-dark ${isCompact ? "p-4" : "p-5"} shadow-sm`}
+            onPress={() =>
+              router.push({
+                pathname: "/booking/[id]",
+                params: { id: activeBooking.id },
+              })
+            }
           >
-            <Text className="text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
-              {t("orders.latest", "Latest Booking")}
-            </Text>
-            <Text className="mt-3 text-sm text-muted-foreground dark:text-muted-foreground-dark">
-              {t("orders.status", "Status")}
-            </Text>
-            <Text className="text-xl font-extrabold text-card-foreground dark:text-card-foreground-dark">
-              {getStatusLabel(String(activeBooking.status || ""))}
-            </Text>
-            {activeBooking.row_no ? (
-              <Text className="mt-2 text-sm font-semibold text-card-foreground dark:text-card-foreground-dark">
-                Pickup Row: {String(activeBooking.row_no)}
-              </Text>
-            ) : null}
-          </View>
+            <View className="flex-row items-center justify-between mb-6">
+              <View>
+                <Text className="text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
+                  {t("orders.latest", "Latest Booking")}
+                </Text>
+                <Text className="mt-1 text-sm font-bold text-card-foreground dark:text-card-foreground-dark">
+                  Order #{String(activeBooking.id || "").slice(0, 8)}
+                </Text>
+              </View>
+              {activeBooking.row_no ? (
+                <View className="bg-primary/10 dark:bg-primary-dark/20 px-3 py-1.5 rounded-full">
+                  <Text className="text-[11px] font-extrabold text-primary dark:text-primary-dark uppercase">
+                    Row: {String(activeBooking.row_no)}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            <TrackingTimeline
+              currentStatus={String(activeBooking.status || "")}
+              orientation="horizontal"
+              showDetails={false}
+              events={[]} // could load events here too, but passing empty array disables details which we don't show horizontally anyway
+            />
+          </Pressable>
         ) : null}
 
         {!error && activeBooking?.status === "ready_for_pickup" ? (
           <View
-            className={`mt-6 rounded-2xl bg-card dark:bg-card-dark ${isCompact ? "p-4" : "p-5"}`}
+            className={`mt-6 rounded-3xl bg-card dark:bg-card-dark ${isCompact ? "p-4" : "p-5"}`}
           >
             <Text className="text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
               Pickup Scan
@@ -235,8 +253,8 @@ export default function StudentOrdersScreen() {
             <Text className="text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
               {t("orders.history", "Booking History")}
             </Text>
-            <View className="mt-3 gap-3">
-              {bookings.map((booking) => (
+            <View className="mt-4 gap-4">
+              {bookings.filter((b) => String(b.id) !== String(activeBooking?.id)).map((booking) => (
                 <Pressable
                   key={booking.id}
                   onPress={() =>
@@ -245,19 +263,26 @@ export default function StudentOrdersScreen() {
                       params: { id: booking.id },
                     })
                   }
-                  className={`rounded-2xl border border-border bg-background dark:border-border-dark dark:bg-background-dark ${isCompact ? "px-3 py-3" : "px-4 py-4"}`}
+                  className={`flex-row items-center justify-between rounded-3xl border border-border bg-background dark:border-border-dark dark:bg-background-dark ${isCompact ? "p-4" : "p-5"}`}
                 >
-                  <Text className="text-sm font-bold text-card-foreground dark:text-card-foreground-dark">
-                    {getStatusLabel(booking.status)}
-                  </Text>
-                  <Text className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground-dark">
-                    #{booking.id.slice(0, 8)}
-                  </Text>
-                  {booking.row_no ? (
-                    <Text className="mt-1 text-xs font-semibold text-card-foreground dark:text-card-foreground-dark">
-                      Pickup Row: {String(booking.row_no)}
-                    </Text>
-                  ) : null}
+                  <View className="flex-row items-center flex-1">
+                    <View className="w-12 h-12 rounded-full bg-muted dark:bg-muted-dark items-center justify-center mr-4">
+                      <MaterialCommunityIcons
+                        name={booking.status === "collected" ? "check-circle" : "history"}
+                        size={24}
+                        color={booking.status === "collected" ? "#22c55e" : "#a1a1aa"}
+                      />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-sm font-bold text-card-foreground dark:text-card-foreground-dark">
+                        {getStatusLabel(booking.status)}
+                      </Text>
+                      <Text className="mt-0.5 text-xs text-muted-foreground dark:text-muted-foreground-dark">
+                        #{booking.id.slice(0, 8)} {booking.row_no ? `• Row: ${booking.row_no}` : ""}
+                      </Text>
+                    </View>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color="#a1a1aa" />
                 </Pressable>
               ))}
             </View>

@@ -76,6 +76,8 @@ CREATE TABLE students (
   reg_no TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
   block TEXT,
+  floor_no INT,
+  room_no INT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

@@ -13,6 +13,8 @@ import QRScanner from "@/components/QRScanner";
 import { MachineRecord, staffService } from "@/services/api";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useLocalSearchParams } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 type StaffPhase =
   | "intake"
@@ -22,13 +24,13 @@ type StaffPhase =
   | "dry_finish"
   | "ready";
 
-const PHASES: { key: StaffPhase; label: string }[] = [
-  { key: "intake", label: "Intake" },
-  { key: "wash_start", label: "Wash Start" },
-  { key: "wash_finish", label: "Wash Finish" },
-  { key: "dry_start", label: "Dry Start" },
-  { key: "dry_finish", label: "Dry Finish" },
-  { key: "ready", label: "Ready" },
+const PHASES: { key: StaffPhase; label: string; icon: any }[] = [
+  { key: "intake", label: "Intake", icon: "inbox-arrow-down" },
+  { key: "wash_start", label: "Wash Start", icon: "washing-machine" },
+  { key: "wash_finish", label: "Wash Finish", icon: "washing-machine-off" },
+  { key: "dry_start", label: "Dry Start", icon: "tumble-dryer" },
+  { key: "dry_finish", label: "Dry Finish", icon: "tumble-dryer-off" },
+  { key: "ready", label: "Ready", icon: "check-circle-outline" },
 ];
 
 const PHASE_HINTS: Record<
@@ -70,8 +72,19 @@ const PHASE_HINTS: Record<
 export default function StaffIntakeScanScreen() {
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
+  const { phase: initialPhase } = useLocalSearchParams<{ phase?: string }>();
   const isCompact = width < 360;
-  const [phase, setPhase] = useState<StaffPhase>("intake");
+  
+  const [phase, setPhase] = useState<StaffPhase>(
+    (initialPhase as StaffPhase) || "intake"
+  );
+
+  useEffect(() => {
+    if (initialPhase) {
+      setPhase(initialPhase as StaffPhase);
+    }
+  }, [initialPhase]);
+
   const [machines, setMachines] = useState<MachineRecord[]>([]);
   const [machineLoading, setMachineLoading] = useState(false);
   const [selectedMachineID, setSelectedMachineID] = useState<string>("");
@@ -199,28 +212,39 @@ export default function StaffIntakeScanScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="mt-4"
-          contentContainerClassName="pr-4"
+          style={{ marginTop: 16 }}
+          contentContainerStyle={{ paddingRight: 16 }}
         >
-          <View className="flex-row gap-2">
+          <View style={{ flexDirection: "row", gap: 12 }}>
             {PHASES.map((item) => {
               const active = item.key === phase;
               return (
                 <Pressable
                   key={item.key}
                   onPress={() => setPhase(item.key)}
-                  className={`rounded-full px-4 py-2.5 ${
-                    active
-                      ? "bg-primary-dark dark:bg-primary"
-                      : "bg-card dark:bg-card-dark"
-                  }`}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    borderRadius: 9999,
+                    paddingHorizontal: 20,
+                    paddingVertical: 12,
+                    borderWidth: 1,
+                    backgroundColor: active ? (isCompact ? "#3A52C6" : "#4194d7") : "transparent",
+                    borderColor: active ? (isCompact ? "#3A52C6" : "#4194d7") : "#2A2D3E",
+                  }}
                 >
+                  <MaterialCommunityIcons 
+                    name={item.icon} 
+                    size={16} 
+                    color={active ? "white" : "#a1a1aa"} 
+                  />
                   <Text
-                    className={`font-bold ${
-                      active
-                        ? "text-primary-foreground-dark dark:text-primary-foreground"
-                        : "text-card-foreground dark:text-card-foreground-dark"
-                    }`}
+                    style={{
+                      fontWeight: "800",
+                      color: active ? "white" : "#F0F2FF",
+                    }}
                   >
                     {item.label}
                   </Text>
@@ -271,7 +295,12 @@ export default function StaffIntakeScanScreen() {
               </Text>
             ) : (
               <View
-                className={`mt-3 flex-row flex-wrap ${isCompact ? "gap-1.5" : "gap-2"}`}
+                style={{
+                  marginTop: 12,
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  gap: isCompact ? 8 : 12,
+                }}
               >
                 {machines.map((machine) => {
                   const active = selectedMachineID === machine.id;
@@ -279,13 +308,31 @@ export default function StaffIntakeScanScreen() {
                     <Pressable
                       key={machine.id}
                       onPress={() => setSelectedMachineID(machine.id)}
-                      className={`rounded-full border px-3 py-2 ${
-                        active
-                          ? "border-primary-dark bg-primary-dark/10 dark:border-primary dark:bg-primary/10"
-                          : "border-border bg-background dark:border-border-dark dark:bg-background-dark"
-                      }`}
+                      style={{
+                        borderRadius: 16,
+                        borderWidth: 1,
+                        paddingHorizontal: 20,
+                        paddingVertical: 16,
+                        minWidth: 80,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: active ? "rgba(65, 148, 215, 0.15)" : "transparent",
+                        borderColor: active ? "#4194d7" : "#2A2D3E",
+                      }}
                     >
-                      <Text className="font-semibold text-card-foreground dark:text-card-foreground-dark">
+                      <MaterialCommunityIcons 
+                        name={machineType === "washer" ? "washing-machine" : "tumble-dryer"} 
+                        size={28} 
+                        color={active ? "#4194d7" : "#a1a1aa"} 
+                      />
+                      <Text 
+                        style={{
+                          fontWeight: "700",
+                          marginTop: 8,
+                          fontSize: 14,
+                          color: active ? "#4194d7" : "#F0F2FF",
+                        }}
+                      >
                         {machine.code}
                       </Text>
                     </Pressable>
@@ -315,22 +362,30 @@ export default function StaffIntakeScanScreen() {
         ) : null}
 
         <View
-          className={`mt-4 ${isCompact ? "min-h-[330px]" : "min-h-[380px]"} overflow-hidden rounded-3xl`}
+          className={`mt-4 ${isCompact ? "min-h-[330px]" : "min-h-[380px]"} overflow-hidden rounded-3xl border-2 ${
+            canScan ? "border-primary-dark/30 dark:border-primary/30 shadow-sm" : "border-transparent"
+          }`}
         >
           {canScan ? (
             <QRScanner
-              title={`${phase.replaceAll("_", " ")} scan`}
+              title={`Awaiting ${phase.replaceAll("_", " ")} scan...`}
               onScan={handleScan}
               showScanDetails={false}
             />
           ) : (
-            <View className="flex-1 items-center justify-center rounded-3xl bg-card p-6 dark:bg-card-dark">
+            <View className="flex-1 items-center justify-center rounded-3xl bg-card p-6 dark:bg-card-dark border border-border dark:border-border-dark">
+              <MaterialCommunityIcons 
+                name="qrcode-scan" 
+                size={48} 
+                color="#83827d" 
+                style={{ opacity: 0.5, marginBottom: 16 }}
+              />
               <Text
-                className={`text-center ${isCompact ? "text-xs leading-5" : "text-sm leading-6"} text-muted-foreground dark:text-muted-foreground-dark`}
+                className={`max-w-[220px] text-center font-semibold ${isCompact ? "text-sm leading-5" : "text-base leading-6"} text-muted-foreground dark:text-muted-foreground-dark`}
               >
                 {requiresMachine
-                  ? "Select a machine to enable scanning."
-                  : "Enter shelf/row to enable scanning."}
+                  ? "Select a machine first to unlock scanner"
+                  : "Enter shelf/row first to unlock scanner"}
               </Text>
             </View>
           )}

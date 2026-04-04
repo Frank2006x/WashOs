@@ -233,6 +233,8 @@ export type BagResponse = {
   reg_no: string;
   name: string;
   block?: string;
+  floor_no?: number;
+  room_no?: number;
   qr_version: number;
   qr_payload: string; // JSON string ready to render as QR
   is_revoked: boolean;
@@ -305,6 +307,12 @@ export type PickupVerifyResponse = {
   booking: Record<string, any>;
 };
 
+export type StudentResidence = {
+  block?: string;
+  floor_no?: number;
+  room_no?: number;
+};
+
 export const studentService = {
   // GET /api/student/me/bag — fetch bag only if it exists (returns null if none)
   async getMyBag(): Promise<BagResponse | null> {
@@ -332,6 +340,24 @@ export const studentService = {
   // PATCH /api/student/me/block — sets hostel block
   async updateMyBlock(block: string): Promise<void> {
     await api.patch("/api/student/me/block", { block });
+  },
+
+  // GET /api/student/me/location — returns block, floor and room
+  async getMyResidence(): Promise<StudentResidence> {
+    const res = await api.get<StudentResidence>("/api/student/me/location");
+    return res.data;
+  },
+
+  // PATCH /api/student/me/location — updates floor and room
+  async updateMyResidence(
+    floorNo: number,
+    roomNo: number,
+  ): Promise<StudentResidence> {
+    const res = await api.patch<StudentResidence>("/api/student/me/location", {
+      floor_no: floorNo,
+      room_no: roomNo,
+    });
+    return res.data;
   },
 
   // GET /api/bookings/my/active — returns latest active booking (or null)

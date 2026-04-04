@@ -59,6 +59,7 @@ export default function StudentTabsLayout() {
         name="orders"
         options={{
           title: "Laundry",
+          href: null,
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons
               name="local-laundry-service"
