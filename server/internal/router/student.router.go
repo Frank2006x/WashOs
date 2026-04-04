@@ -21,4 +21,8 @@ func SetupStudentRoutes(app *fiber.App, h *handler.Handler) {
 	studentGroup.Patch("/block", h.UpdateMyBlock)
 	studentGroup.Get("/location", h.GetMyResidence)
 	studentGroup.Patch("/location", h.UpdateMyResidence)
+	studentGroup.Get("/slots/available", h.ListMyAvailableSlots)
+	studentGroup.Post("/slots/book", h.BookMySlot)
+	studentGroup.Get("/slots/bookings", h.ListMySlotBookings)
+	studentGroup.Post("/slots/:id/cancel", h.CancelMySlotBooking)
 }

@@ -3,6 +3,11 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Destructive reset for V1-only schema.
 DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS push_tokens CASCADE;
+DROP TABLE IF EXISTS slot_overrides CASCADE;
+DROP TABLE IF EXISTS slot_reservations CASCADE;
+DROP TABLE IF EXISTS slot_windows CASCADE;
+DROP TABLE IF EXISTS laundry_daily_slots CASCADE;
+DROP TABLE IF EXISTS laundry_cycle_periods CASCADE;
 DROP TABLE IF EXISTS query_replies CASCADE;
 DROP TABLE IF EXISTS queries CASCADE;
 DROP TABLE IF EXISTS workflow_events CASCADE;
@@ -16,6 +21,7 @@ DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS laundry_services CASCADE;
 
 DROP TYPE IF EXISTS workflow_event_type CASCADE;
+DROP TYPE IF EXISTS slot_reservation_status CASCADE;
 DROP TYPE IF EXISTS query_status CASCADE;
 DROP TYPE IF EXISTS machine_run_status CASCADE;
 DROP TYPE IF EXISTS machine_type CASCADE;
@@ -72,6 +78,13 @@ CREATE TYPE query_status AS ENUM (
   'acknowledged',
   'resolved',
   'closed'
+);
+
+CREATE TYPE slot_reservation_status AS ENUM (
+  'booked',
+  'checked_in',
+  'no_show',
+  'cancelled'
 );
 
 CREATE TABLE users (
@@ -263,6 +276,61 @@ CREATE TABLE laundry_daily_slots (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE slot_windows (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  date DATE NOT NULL,
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  allowed_start_floor INT NOT NULL,
+  allowed_end_floor INT NOT NULL,
+  cycle_part INT NOT NULL CHECK (cycle_part BETWEEN 1 AND 4),
+  capacity_limit INT NOT NULL DEFAULT 100 CHECK (capacity_limit > 0),
+  day_limit INT NOT NULL DEFAULT 600 CHECK (day_limit > 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT slot_windows_floor_range_chk CHECK (allowed_start_floor <= allowed_end_floor),
+  CONSTRAINT slot_windows_one_hour_chk CHECK (end_time = start_time + INTERVAL '1 hour'),
+  CONSTRAINT slot_windows_unique_window UNIQUE (date, start_time, allowed_start_floor, allowed_end_floor)
+);
+
+CREATE TABLE slot_overrides (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  date DATE NOT NULL,
+  base_start_floor INT NOT NULL,
+  base_end_floor INT NOT NULL,
+  next_start_floor INT NOT NULL,
+  next_end_floor INT NOT NULL,
+  enabled_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  enabled_from TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  enabled_until TIMESTAMPTZ NOT NULL,
+  reason TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT slot_overrides_base_range_chk CHECK (base_start_floor <= base_end_floor),
+  CONSTRAINT slot_overrides_next_range_chk CHECK (next_start_floor <= next_end_floor),
+  CONSTRAINT slot_overrides_window_chk CHECK (enabled_until > enabled_from)
+);
+
+CREATE TABLE slot_reservations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  slot_window_id UUID NOT NULL REFERENCES slot_windows(id) ON DELETE CASCADE,
+  status slot_reservation_status NOT NULL DEFAULT 'booked',
+  override_used BOOLEAN NOT NULL DEFAULT FALSE,
+  booked_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  checked_in_at TIMESTAMPTZ,
+  cancelled_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT slot_reservations_checked_in_consistency CHECK (
+    (status = 'checked_in' AND checked_in_at IS NOT NULL)
+    OR (status <> 'checked_in')
+  ),
+  CONSTRAINT slot_reservations_cancelled_consistency CHECK (
+    (status = 'cancelled' AND cancelled_at IS NOT NULL)
+    OR (status <> 'cancelled')
+  )
+);
+
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -311,6 +379,10 @@ CREATE TRIGGER queries_set_updated_at
 BEFORE UPDATE ON queries
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+CREATE TRIGGER slot_reservations_set_updated_at
+BEFORE UPDATE ON slot_reservations
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- Scalability and hot-path indexes.
 CREATE INDEX idx_students_user_id ON students(user_id);
 CREATE INDEX idx_laundry_staff_user_id ON laundry_staff(user_id);
@@ -338,6 +410,16 @@ CREATE INDEX idx_workflow_events_student_created ON workflow_events(student_id, 
 
 CREATE INDEX idx_push_tokens_user_active ON push_tokens(user_id, is_active);
 CREATE INDEX idx_notifications_recipient_read_created ON notifications(recipient_user_id, is_read, created_at DESC);
+CREATE INDEX idx_slot_windows_date_time ON slot_windows(date, start_time);
+CREATE INDEX idx_slot_windows_floor_range ON slot_windows(date, allowed_start_floor, allowed_end_floor);
+CREATE INDEX idx_slot_overrides_date_active ON slot_overrides(date, is_active, enabled_until DESC);
+CREATE INDEX idx_slot_reservations_student_created ON slot_reservations(student_id, created_at DESC);
+CREATE INDEX idx_slot_reservations_window_status ON slot_reservations(slot_window_id, status);
+CREATE INDEX idx_slot_reservations_status ON slot_reservations(status, created_at DESC);
+CREATE UNIQUE INDEX uq_slot_reservations_student_active_window
+ON slot_reservations(student_id, slot_window_id)
+WHERE status IN ('booked', 'checked_in');
+
 CREATE INDEX idx_queries_student_created ON queries(student_id, created_at DESC);
 CREATE INDEX idx_queries_status_created ON queries(status, created_at DESC);
 CREATE INDEX idx_queries_booking ON queries(booking_id);

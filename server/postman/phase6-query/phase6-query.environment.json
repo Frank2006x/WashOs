@@ -2,20 +2,55 @@
   "id": "2c4d28c7-3b6f-4f3f-8f4a-3a68e08e3c31",
   "name": "WashOs Phase6 Query Local",
   "values": [
-    { "key": "baseUrl", "value": "http://localhost:3001", "type": "default", "enabled": true },
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "default",
+      "enabled": true
+    },
     { "key": "student_name", "value": "", "type": "default", "enabled": true },
-    { "key": "student_reg_no", "value": "", "type": "default", "enabled": true },
+    {
+      "key": "student_reg_no",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
     { "key": "student_email", "value": "", "type": "default", "enabled": true },
-    { "key": "student_password", "value": "123456", "type": "default", "enabled": true },
-    { "key": "student_access_token", "value": "", "type": "default", "enabled": true },
+    {
+      "key": "student_password",
+      "value": "123456",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "student_access_token",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
     { "key": "staff_name", "value": "", "type": "default", "enabled": true },
     { "key": "staff_phone", "value": "", "type": "default", "enabled": true },
     { "key": "staff_email", "value": "", "type": "default", "enabled": true },
-    { "key": "staff_password", "value": "123456", "type": "default", "enabled": true },
-    { "key": "staff_access_token", "value": "", "type": "default", "enabled": true },
+    {
+      "key": "staff_password",
+      "value": "123456",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_access_token",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
     { "key": "qr_payload", "value": "", "type": "default", "enabled": true },
     { "key": "booking_id", "value": "", "type": "default", "enabled": true },
-    { "key": "query_image_url", "value": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab", "type": "default", "enabled": true },
+    {
+      "key": "query_image_url",
+      "value": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab",
+      "type": "default",
+      "enabled": true
+    },
     { "key": "query_id", "value": "", "type": "default", "enabled": true },
     { "key": "query_reply_id", "value": "", "type": "default", "enabled": true }
   ],

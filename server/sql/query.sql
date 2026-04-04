@@ -417,6 +417,28 @@ FROM queries
 ORDER BY created_at ASC
 LIMIT $1 OFFSET $2;
 
+-- name: GetStaffRatingSummary :one
+SELECT
+  COALESCE(AVG(service_rating)::float8, 0) AS avg_service_rating,
+  COALESCE(AVG(handling_rating)::float8, 0) AS avg_handling_rating,
+  COALESCE(
+    AVG(
+      (
+        COALESCE(service_rating, 0) + COALESCE(handling_rating, 0)
+      )::float8 /
+      NULLIF(
+        (CASE WHEN service_rating IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN handling_rating IS NOT NULL THEN 1 ELSE 0 END),
+        0
+      )
+    ),
+    0
+  ) AS avg_overall_rating,
+  COUNT(*)::bigint AS rated_query_count
+FROM queries
+WHERE assigned_staff_user_id = $1
+  AND (service_rating IS NOT NULL OR handling_rating IS NOT NULL);
+
 -- name: SetQueryAcknowledged :one
 UPDATE queries
 SET status = 'acknowledged',
@@ -474,3 +496,79 @@ LIMIT 1;
 INSERT INTO laundry_cycle_periods (year, month, part, start_date, end_date)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
+
+-- =========================
+-- Slot Scheduling Queries
+-- =========================
+
+-- name: ListEligibleSlotWindowsForStudent :many
+SELECT
+  sw.*,
+  COALESCE(sr.booked_count, 0)::bigint AS booked_count,
+  EXISTS (
+    SELECT 1
+    FROM slot_overrides so
+    WHERE so.is_active = TRUE
+      AND so.date = sw.date
+      AND so.base_start_floor = sw.allowed_start_floor
+      AND so.base_end_floor = sw.allowed_end_floor
+      AND $2 BETWEEN so.next_start_floor AND so.next_end_floor
+      AND $3 BETWEEN so.enabled_from AND so.enabled_until
+  ) AS eligible_via_override
+FROM slot_windows sw
+LEFT JOIN (
+  SELECT slot_window_id, COUNT(*) AS booked_count
+  FROM slot_reservations
+  WHERE status IN ('booked', 'checked_in')
+  GROUP BY slot_window_id
+) sr ON sr.slot_window_id = sw.id
+WHERE sw.date = $1
+  AND (
+    $2 BETWEEN sw.allowed_start_floor AND sw.allowed_end_floor
+    OR EXISTS (
+      SELECT 1
+      FROM slot_overrides so
+      WHERE so.is_active = TRUE
+        AND so.date = sw.date
+        AND so.base_start_floor = sw.allowed_start_floor
+        AND so.base_end_floor = sw.allowed_end_floor
+        AND $2 BETWEEN so.next_start_floor AND so.next_end_floor
+        AND $3 BETWEEN so.enabled_from AND so.enabled_until
+    )
+  )
+ORDER BY sw.start_time ASC;
+
+-- name: CreateSlotReservation :one
+INSERT INTO slot_reservations (student_id, slot_window_id, status, override_used, booked_by_user_id)
+VALUES ($1, $2, 'booked', $3, $4)
+RETURNING *;
+
+-- name: CountStudentMonthlyIntakes :one
+SELECT COUNT(*)::bigint
+FROM bookings
+WHERE student_id = $1
+  AND received_at IS NOT NULL
+  AND date_trunc('month', received_at AT TIME ZONE 'Asia/Kolkata') = date_trunc('month', $2::timestamptz AT TIME ZONE 'Asia/Kolkata');
+
+-- name: CountTodayIntakes :one
+SELECT COUNT(*)::bigint
+FROM bookings
+WHERE received_at IS NOT NULL
+  AND (received_at AT TIME ZONE 'Asia/Kolkata')::date = $1::date;
+
+-- name: ListSlotUtilizationByDate :many
+SELECT
+  sw.id AS slot_window_id,
+  sw.date,
+  sw.start_time,
+  sw.end_time,
+  sw.allowed_start_floor,
+  sw.allowed_end_floor,
+  sw.capacity_limit,
+  COALESCE(COUNT(sr.id) FILTER (WHERE sr.status IN ('booked', 'checked_in')), 0)::bigint AS booked_count,
+  COALESCE(COUNT(sr.id) FILTER (WHERE sr.status = 'checked_in'), 0)::bigint AS checked_in_count
+FROM slot_windows sw
+LEFT JOIN slot_reservations sr ON sr.slot_window_id = sw.id
+WHERE sw.date = $1
+GROUP BY sw.id
+ORDER BY sw.start_time ASC;

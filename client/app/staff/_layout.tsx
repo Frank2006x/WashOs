@@ -45,7 +45,11 @@ export default function StaffTabsLayout() {
         options={{
           title: t("tabs.scan") as string,
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="barcode-scan" color={color} size={size} />
+            <MaterialCommunityIcons
+              name="barcode-scan"
+              color={color}
+              size={size}
+            />
           ),
         }}
       />
@@ -55,6 +59,19 @@ export default function StaffTabsLayout() {
           title: t("tabs.profile") as string,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="account" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="queries"
+        options={{
+          title: "Queries",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons
+              name="message-reply-text"
+              color={color}
+              size={size}
+            />
           ),
         }}
       />

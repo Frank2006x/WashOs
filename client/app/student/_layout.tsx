@@ -155,6 +155,24 @@ export default function StudentTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="queries"
+        options={{
+          title: "Queries",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="support-agent" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="slots"
+        options={{
+          title: "Slots",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="schedule" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="notifications"
         options={{
           title: "Alerts",

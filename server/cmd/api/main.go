@@ -23,7 +23,7 @@ func main() {
 	}
 	for _, p := range envPaths {
 		if _, err := os.Stat(p); err == nil {
-			if err := godotenv.Load(p); err == nil {
+			if err := godotenv.Overload(p); err == nil {
 				break
 			}
 		}

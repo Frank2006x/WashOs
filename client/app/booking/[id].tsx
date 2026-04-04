@@ -64,6 +64,7 @@ export default function BookingDetailScreen() {
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isCompact = width < 360;
+  const scanAreaSize = Math.max(220, Math.min(width - (isCompact ? 48 : 64), 360));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [booking, setBooking] = useState<Record<string, any> | null>(null);
@@ -234,12 +235,20 @@ export default function BookingDetailScreen() {
                 <ActivityIndicator size="small" />
               </View>
             ) : (
+<<<<<<< HEAD
               <View className="mt-4 overflow-hidden rounded-2xl border-2 border-primary-dark/30 dark:border-primary/30 shadow-sm h-64">
                 <QRScanner
                   title="Checkout Scan"
                   onScan={handlePickupScan}
                   showScanDetails={false}
                 />
+=======
+              <View
+                className="mt-4 self-center overflow-hidden rounded-2xl border-2 border-primary-dark/30 dark:border-primary/30 shadow-sm"
+                style={{ width: scanAreaSize, height: scanAreaSize }}
+              >
+                <QRScanner title="Checkout Scan" onScan={handlePickupScan} showScanDetails={false} />
+>>>>>>> 009b3637d449d7a9b252f8c6e163c39d567019b4
               </View>
             )}
           </View>

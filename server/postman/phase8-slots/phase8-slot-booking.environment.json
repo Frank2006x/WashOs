@@ -1,0 +1,101 @@
+{
+  "id": "fd2a79c5-ee77-4d6b-9c58-5b919f1b2b97",
+  "name": "WashOs Phase8 Local",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "student_password",
+      "value": "password123",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "student_floor_no",
+      "value": "1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "student_access_token",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_password",
+      "value": "password123",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "staff_access_token",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    { "key": "slot_date", "value": "", "type": "default", "enabled": true },
+    {
+      "key": "slot_window_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "reservation_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "booking_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "base_start_floor",
+      "value": "1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "base_end_floor",
+      "value": "2",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "next_start_floor",
+      "value": "3",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "next_end_floor",
+      "value": "3",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "override_enabled_until",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "override_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    { "key": "qr_payload", "value": "", "type": "default", "enabled": true }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2026-04-04T00:00:00.000Z",
+  "_postman_exported_using": "GitHub Copilot"
+}

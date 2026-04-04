@@ -48,6 +48,11 @@ func SetupPhase2Routes(app *fiber.App, h *handler.Handler) {
 	notificationGroup.Post("/push-token", h.RegisterMyPushToken)
 	notificationGroup.Delete("/push-token", h.DeactivateMyPushToken)
 
+	staffSlotGroup := apiGroup.Group("/staff/slots", auth.AuthMiddleware)
+	staffSlotGroup.Get("/utilization", h.StaffSlotUtilization)
+	staffSlotGroup.Post("/override", h.CreateStaffSlotOverride)
+	staffSlotGroup.Delete("/override/:id", h.DisableStaffSlotOverride)
+
 	adminGroup := apiGroup.Group("/admin", auth.AuthMiddleware)
 	adminGroup.Get("/bookings/overview", h.AdminBookingsOverview)
 

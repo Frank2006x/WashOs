@@ -36,6 +36,17 @@ VALUES
   ('80000000-0000-0000-0000-000000000005', '50000000-0000-0000-0000-000000000005', 'REG005', 'Vikram Reddy')
 ON CONFLICT DO NOTHING;
 
+UPDATE students
+SET floor_no = CASE reg_no
+  WHEN 'REG001' THEN 1
+  WHEN 'REG002' THEN 2
+  WHEN 'REG003' THEN 3
+  WHEN 'REG004' THEN 4
+  WHEN 'REG005' THEN 5
+  ELSE floor_no
+END
+WHERE reg_no IN ('REG001', 'REG002', 'REG003', 'REG004', 'REG005');
+
 -- Laundry staff profiles (phone is unique and used for signin)
 WITH svc AS (
   SELECT COALESCE(
@@ -243,6 +254,47 @@ VALUES
   )
 ON CONFLICT DO NOTHING;
 
+-- Slot windows for the next 365 days: 1-hour windows from 09:00 to 21:00
+-- for all floor bands every day (1-2, 3-4, 5-6, 7-8).
+WITH day_slots AS (
+  SELECT (CURRENT_DATE + offs)::date AS slot_date
+  FROM generate_series(0, 364) AS offs
+), floor_bands AS (
+  SELECT *
+  FROM (
+    VALUES
+      (1, 2, 1),
+      (3, 4, 2),
+      (5, 6, 3),
+      (7, 8, 4)
+  ) AS fb(start_floor, end_floor, cycle_part)
+), hour_slots AS (
+  SELECT generate_series(9, 20) AS hr
+)
+INSERT INTO slot_windows (
+  date,
+  start_time,
+  end_time,
+  allowed_start_floor,
+  allowed_end_floor,
+  cycle_part,
+  capacity_limit,
+  day_limit
+)
+SELECT
+  ds.slot_date,
+  make_time(hs.hr, 0, 0),
+  make_time(hs.hr + 1, 0, 0),
+  fb.start_floor,
+  fb.end_floor,
+  fb.cycle_part,
+  100,
+  600
+FROM day_slots ds
+CROSS JOIN floor_bands fb
+CROSS JOIN hour_slots hs
+ON CONFLICT DO NOTHING;
+
 -- Verification
 SELECT 'Students created: ' || COUNT(*) FROM students;
 SELECT 'Laundry staff created: ' || COUNT(*) FROM laundry_staff;
@@ -250,4 +302,5 @@ SELECT 'Bags created: ' || COUNT(*) FROM bags;
 SELECT 'Machines created: ' || COUNT(*) FROM machines;
 SELECT 'Bookings created: ' || COUNT(*) FROM bookings;
 SELECT 'Workflow events created: ' || COUNT(*) FROM workflow_events;
+SELECT 'Slot windows created: ' || COUNT(*) FROM slot_windows;
 SELECT 'Total users created: ' || COUNT(*) FROM users;

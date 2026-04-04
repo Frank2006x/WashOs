@@ -704,6 +704,48 @@ func (q *Queries) GetRunningMachineRunByMachineID(ctx context.Context, machineID
 	return i, err
 }
 
+const getStaffRatingSummary = `-- name: GetStaffRatingSummary :one
+SELECT
+  COALESCE(AVG(service_rating)::float8, 0) AS avg_service_rating,
+  COALESCE(AVG(handling_rating)::float8, 0) AS avg_handling_rating,
+  COALESCE(
+    AVG(
+      (
+        COALESCE(service_rating, 0) + COALESCE(handling_rating, 0)
+      )::float8 /
+      NULLIF(
+        (CASE WHEN service_rating IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN handling_rating IS NOT NULL THEN 1 ELSE 0 END),
+        0
+      )
+    ),
+    0
+  ) AS avg_overall_rating,
+  COUNT(*)::bigint AS rated_query_count
+FROM queries
+WHERE assigned_staff_user_id = $1
+  AND (service_rating IS NOT NULL OR handling_rating IS NOT NULL)
+`
+
+type GetStaffRatingSummaryRow struct {
+	AvgServiceRating  interface{} `json:"avg_service_rating"`
+	AvgHandlingRating interface{} `json:"avg_handling_rating"`
+	AvgOverallRating  interface{} `json:"avg_overall_rating"`
+	RatedQueryCount   int64       `json:"rated_query_count"`
+}
+
+func (q *Queries) GetStaffRatingSummary(ctx context.Context, assignedStaffUserID pgtype.UUID) (GetStaffRatingSummaryRow, error) {
+	row := q.db.QueryRow(ctx, getStaffRatingSummary, assignedStaffUserID)
+	var i GetStaffRatingSummaryRow
+	err := row.Scan(
+		&i.AvgServiceRating,
+		&i.AvgHandlingRating,
+		&i.AvgOverallRating,
+		&i.RatedQueryCount,
+	)
+	return i, err
+}
+
 const getStudentBagByStudentID = `-- name: GetStudentBagByStudentID :one
 SELECT id, student_id, qr_version, is_revoked, last_rotated_at, created_at, updated_at
 FROM bags

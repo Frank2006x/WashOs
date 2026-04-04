@@ -62,9 +62,7 @@
       ],
       "request": {
         "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"name\": \"{{student_name}}\",\n  \"reg_no\": \"{{student_reg_no}}\",\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}"
@@ -80,9 +78,7 @@
       "name": "Auth - Student Signin",
       "request": {
         "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}"
@@ -170,9 +166,7 @@
       ],
       "request": {
         "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"name\": \"{{staff_name}}\",\n  \"phone\": \"{{staff_phone}}\",\n  \"email\": \"{{staff_email}}\",\n  \"password\": \"{{staff_password}}\"\n}"
@@ -188,9 +182,7 @@
       "name": "Auth - Staff Signin",
       "request": {
         "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" }
-        ],
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"phone\": \"{{staff_phone}}\",\n  \"password\": \"{{staff_password}}\"\n}"
@@ -256,7 +248,10 @@
       "request": {
         "method": "POST",
         "header": [
-          { "key": "Authorization", "value": "Bearer {{student_access_token}}" },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_access_token}}"
+          },
           { "key": "Content-Type", "value": "application/json" }
         ],
         "body": {
@@ -354,7 +349,10 @@
       "request": {
         "method": "PATCH",
         "header": [
-          { "key": "Authorization", "value": "Bearer {{student_access_token}}" },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_access_token}}"
+          },
           { "key": "Content-Type", "value": "application/json" }
         ],
         "body": {
@@ -389,7 +387,10 @@
       "request": {
         "method": "PATCH",
         "header": [
-          { "key": "Authorization", "value": "Bearer {{student_access_token}}" },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_access_token}}"
+          },
           { "key": "Content-Type", "value": "application/json" }
         ],
         "body": {
@@ -628,7 +629,10 @@
       "request": {
         "method": "PATCH",
         "header": [
-          { "key": "Authorization", "value": "Bearer {{student_access_token}}" },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_access_token}}"
+          },
           { "key": "Content-Type", "value": "application/json" }
         ],
         "body": {
@@ -670,7 +674,10 @@
     { "key": "staff_access_token", "value": "" },
     { "key": "qr_payload", "value": "" },
     { "key": "booking_id", "value": "" },
-    { "key": "query_image_url", "value": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab" },
+    {
+      "key": "query_image_url",
+      "value": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab"
+    },
     { "key": "query_id", "value": "" },
     { "key": "query_reply_id", "value": "" }
   ]

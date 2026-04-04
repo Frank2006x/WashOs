@@ -8,6 +8,7 @@ import {
   Animated,
   ScrollView,
   ActivityIndicator,
+  LayoutChangeEvent,
 } from "react-native";
 import {
   CameraView,
@@ -54,7 +55,12 @@ const QRScanner: React.FC<QRScannerProps> = ({
   );
   const [scannedData, setScannedData] = useState<any>(null);
   const [rawValue, setRawValue] = useState<string>("");
+<<<<<<< HEAD
   const [hasError, setHasError] = useState(false);
+=======
+  const [parseError, setParseError] = useState(false);
+  const [scanFrameSize, setScanFrameSize] = useState(240);
+>>>>>>> 009b3637d449d7a9b252f8c6e163c39d567019b4
 
   const hasScanned = useRef(false);
   const flashAnim = useRef(new Animated.Value(0)).current;
@@ -138,6 +144,13 @@ const QRScanner: React.FC<QRScannerProps> = ({
     setScanState("scanning");
   }, [flashAnim]);
 
+  const handleCameraLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    const next = Math.floor(Math.min(width, height) * 0.72);
+    const clamped = Math.max(150, Math.min(next, 320));
+    setScanFrameSize(clamped);
+  }, []);
+
   // ─── Render: Loading ─────────────────────────────────────────────────────
   if (scanState === "loading" || permission === null) {
     return (
@@ -189,8 +202,13 @@ const QRScanner: React.FC<QRScannerProps> = ({
       </View>
 
       {/* Camera / Result area */}
+<<<<<<< HEAD
       {scanState === "scanning" || scanState === "processing" ? (
         <View style={styles.cameraWrapper}>
+=======
+      {scanState === "scanning" ? (
+        <View style={styles.cameraWrapper} onLayout={handleCameraLayout}>
+>>>>>>> 009b3637d449d7a9b252f8c6e163c39d567019b4
           <CameraView
             style={styles.camera}
             facing="back"
@@ -199,7 +217,12 @@ const QRScanner: React.FC<QRScannerProps> = ({
           />
           {/* Scan overlay */}
           <View style={[styles.overlay, StyleSheet.absoluteFill]}>
-            <View style={styles.scanFrame}>
+            <View
+              style={[
+                styles.scanFrame,
+                { width: scanFrameSize, height: scanFrameSize },
+              ]}
+            >
               {/* Corner accents */}
               <View style={[styles.corner, styles.cornerTL]} />
               <View style={[styles.corner, styles.cornerTR]} />
@@ -404,8 +427,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.45)",
   },
   scanFrame: {
-    width: 240,
-    height: 240,
     position: "relative",
   },
   corner: {

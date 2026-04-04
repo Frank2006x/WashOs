@@ -146,27 +146,31 @@ func (h *Handler) sendExpoPush(token, title, message string, data map[string]int
 func (h *Handler) dispatchReadyNotification(c fiber.Ctx, booking dbgen.Booking, rowNo string, source string) {
 	student, sErr := h.Queries.GetStudentByID(c.Context(), booking.StudentID)
 	if sErr != nil {
-		log.Printf("ready notification skipped: source=%s booking=%s student lookup err=%v", source, pgUUIDToStr(booking.ID), sErr)
+		log.Printf("[DEBUG] READY_NOTIF: student lookup failed for studentID=%s bookingID=%s: %v", pgUUIDToStr(booking.StudentID), pgUUIDToStr(booking.ID), sErr)
 		return
 	}
 
 	payloadMap := map[string]interface{}{
 		"booking_id": pgUUIDToStr(booking.ID),
-		"status":     booking.Status,
+		"status":     string(booking.Status),
 		"row_no":     rowNo,
 	}
 	payload, _ := json.Marshal(payloadMap)
 
-	if _, nErr := h.Queries.CreateNotification(c.Context(), dbgen.CreateNotificationParams{
+	log.Printf("[DEBUG] READY_NOTIF: Creating notification for userID=%s bookingID=%s payload=%s", pgUUIDToStr(student.UserID), pgUUIDToStr(booking.ID), string(payload))
+
+	_, nErr := h.Queries.CreateNotification(c.Context(), dbgen.CreateNotificationParams{
 		RecipientUserID: student.UserID,
 		BookingID:       pgtype.UUID{Bytes: booking.ID.Bytes, Valid: true},
 		Title:           "Laundry Ready for Pickup",
 		Message:         "Your laundry is ready for pickup.",
 		Payload:         payload,
-	}); nErr != nil {
-		log.Printf("create notification failed: source=%s booking=%s student_user=%s err=%v", source, pgUUIDToStr(booking.ID), pgUUIDToStr(student.UserID), nErr)
+	})
+	if nErr != nil {
+		log.Printf("[DEBUG] READY_NOTIF: CreateNotification failed: %v", nErr)
 		return
 	}
+	log.Printf("[DEBUG] READY_NOTIF: Notification created successfully for bookingID=%s", pgUUIDToStr(booking.ID))
 
 	pushTokens, pErr := h.Queries.ListActivePushTokensByUser(c.Context(), student.UserID)
 	if pErr != nil {
@@ -444,6 +448,10 @@ func (h *Handler) IntakeScan(c fiber.Ctx) error {
 	}
 	if activeErr != nil && activeErr != pgx.ErrNoRows {
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to check existing booking")
+	}
+
+	if err := h.enforceSlotReservationForIntake(c, student, istNow()); err != nil {
+		return err
 	}
 
 	booking, err := h.Queries.CreateBooking(c.Context(), dbgen.CreateBookingParams{

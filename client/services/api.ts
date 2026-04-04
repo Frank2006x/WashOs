@@ -265,6 +265,94 @@ export type BookingEventsResponse = {
   events: Record<string, any>[];
 };
 
+export type QueryReplyRecord = {
+  id: string;
+  query_id: string;
+  replied_by_user_id: string;
+  message: string;
+  created_at?: string;
+};
+
+export type QueryRecord = {
+  id: string;
+  booking_id: string;
+  title: string;
+  description: string;
+  image_url?: string;
+  service_rating?: number;
+  handling_rating?: number;
+  status: "open" | "acknowledged" | "resolved" | "closed";
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type QueryListResponse = {
+  queries: QueryRecord[];
+};
+
+export type QueryDetailResponse = {
+  query: QueryRecord;
+  replies: QueryReplyRecord[];
+};
+
+export type StaffRatingSummaryResponse = {
+  avg_service_rating: number;
+  avg_handling_rating: number;
+  avg_overall_rating: number;
+  rated_query_count: number;
+};
+
+function normalizeMaybeText(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || undefined;
+  }
+
+  if (value && typeof value === "object") {
+    const maybe = value as {
+      String?: unknown;
+      string?: unknown;
+      Valid?: unknown;
+    };
+    if (typeof maybe.String === "string") {
+      const trimmed = maybe.String.trim();
+      return trimmed || undefined;
+    }
+    if (typeof maybe.string === "string") {
+      const trimmed = maybe.string.trim();
+      return trimmed || undefined;
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeQueryRecord(input: any): QueryRecord {
+  return {
+    ...input,
+    image_url: normalizeMaybeText(input?.image_url),
+  } as QueryRecord;
+}
+
+function normalizeQueryListResponse(
+  data: QueryListResponse,
+): QueryListResponse {
+  return {
+    ...data,
+    queries: (data?.queries || []).map((q) => normalizeQueryRecord(q)),
+  };
+}
+
+function normalizeQueryDetailResponse(
+  data: QueryDetailResponse,
+): QueryDetailResponse {
+  return {
+    ...data,
+    query: normalizeQueryRecord(data?.query),
+    replies: data?.replies || [],
+  };
+}
+
 export type IntakeScanResponse = {
   message: string;
   booking: {
@@ -317,6 +405,46 @@ export type StudentResidence = {
   block?: string;
   floor_no?: number;
   room_no?: number;
+};
+
+export type SlotWindow = {
+  slot_window_id: string;
+  date: string;
+  start_at: string;
+  end_at: string;
+  allowed_start_floor: number;
+  allowed_end_floor: number;
+  capacity_limit: number;
+  booked_count: number;
+  remaining_capacity: number;
+  eligible_via_override?: boolean;
+};
+
+export type AvailableSlotsResponse = {
+  date: string;
+  floor_no: number;
+  daily_booking_limit: number;
+  daily_booked_reservations: number;
+  slots: SlotWindow[];
+};
+
+export type SlotReservationRecord = {
+  reservation_id: string;
+  slot_window_id: string;
+  status: string;
+  override_used: boolean;
+  checked_in_at?: string;
+  cancelled_at?: string;
+  created_at?: string;
+  date: string;
+  start_at: string;
+  end_at: string;
+  allowed_start_floor: number;
+  allowed_end_floor: number;
+};
+
+export type SlotBookingsResponse = {
+  reservations: SlotReservationRecord[];
 };
 
 export const studentService = {
@@ -449,6 +577,126 @@ export const studentService = {
     await api.delete("/api/notifications/push-token", {
       data: { token },
     });
+  },
+
+  async listAvailableSlots(date: string): Promise<AvailableSlotsResponse> {
+    const res = await api.get<AvailableSlotsResponse>(
+      "/api/student/me/slots/available",
+      { params: { date } },
+    );
+    return res.data;
+  },
+
+  async bookSlot(slotWindowID: string): Promise<{
+    reservation_id: string;
+    status: string;
+    slot: SlotWindow;
+  }> {
+    const res = await api.post<{
+      reservation_id: string;
+      status: string;
+      slot: SlotWindow;
+    }>("/api/student/me/slots/book", {
+      slot_window_id: slotWindowID,
+    });
+    return res.data;
+  },
+
+  async listMySlotReservations(
+    limit = 20,
+    offset = 0,
+  ): Promise<SlotBookingsResponse> {
+    const res = await api.get<SlotBookingsResponse>(
+      "/api/student/me/slots/bookings",
+      {
+        params: { limit, offset },
+      },
+    );
+    return res.data;
+  },
+
+  async cancelSlotReservation(reservationID: string): Promise<void> {
+    await api.post(`/api/student/me/slots/${reservationID}/cancel`);
+  },
+
+  async raiseQueryWithImage(payload: {
+    booking_id: string;
+    title: string;
+    description: string;
+    service_rating?: number;
+    handling_rating?: number;
+    image?: {
+      uri: string;
+      name?: string;
+      type?: string;
+    };
+    image_url?: string;
+  }): Promise<{ query: QueryRecord }> {
+    if (!payload.image && !payload.image_url) {
+      throw new Error("image or image_url is required");
+    }
+
+    if (payload.image) {
+      const form = new FormData();
+      form.append("booking_id", payload.booking_id);
+      form.append("title", payload.title);
+      form.append("description", payload.description);
+
+      if (typeof payload.service_rating === "number") {
+        form.append("service_rating", String(payload.service_rating));
+      }
+      if (typeof payload.handling_rating === "number") {
+        form.append("handling_rating", String(payload.handling_rating));
+      }
+
+      form.append("image", {
+        uri: payload.image.uri,
+        name: payload.image.name || `query-${Date.now()}.jpg`,
+        type: payload.image.type || "image/jpeg",
+      } as any);
+
+      const res = await api.post<{ query: QueryRecord }>(
+        "/api/student/queries",
+        form,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+      return { ...res.data, query: normalizeQueryRecord(res.data?.query) };
+    }
+
+    const res = await api.post<{ query: QueryRecord }>("/api/student/queries", {
+      booking_id: payload.booking_id,
+      title: payload.title,
+      description: payload.description,
+      image_url: payload.image_url,
+      service_rating: payload.service_rating,
+      handling_rating: payload.handling_rating,
+    });
+    return { ...res.data, query: normalizeQueryRecord(res.data?.query) };
+  },
+
+  async listMyQueries(limit = 20, offset = 0): Promise<QueryListResponse> {
+    const res = await api.get<QueryListResponse>("/api/student/queries", {
+      params: { limit, offset },
+    });
+    return normalizeQueryListResponse(res.data);
+  },
+
+  async getMyQuery(queryID: string): Promise<QueryDetailResponse> {
+    const res = await api.get<QueryDetailResponse>(
+      `/api/student/queries/${queryID}`,
+    );
+    return normalizeQueryDetailResponse(res.data);
+  },
+
+  async updateMyQueryRating(
+    queryID: string,
+    ratings: { service_rating?: number; handling_rating?: number },
+  ): Promise<{ query: QueryRecord }> {
+    const res = await api.patch<{ query: QueryRecord }>(
+      `/api/student/queries/${queryID}/rating`,
+      ratings,
+    );
+    return { ...res.data, query: normalizeQueryRecord(res.data?.query) };
   },
 };
 
@@ -585,6 +833,59 @@ export const staffService = {
 
   async markNotificationRead(notificationID: string): Promise<void> {
     await api.patch(`/api/notifications/${notificationID}/read`);
+  },
+
+  async listQueries(limit = 20, offset = 0): Promise<QueryListResponse> {
+    const res = await api.get<QueryListResponse>("/api/staff/queries", {
+      params: { limit, offset },
+    });
+    return normalizeQueryListResponse(res.data);
+  },
+
+  async getRatingSummary(): Promise<StaffRatingSummaryResponse> {
+    const res = await api.get<StaffRatingSummaryResponse>(
+      "/api/staff/queries/ratings/summary",
+    );
+    return res.data;
+  },
+
+  async getQuery(queryID: string): Promise<QueryDetailResponse> {
+    const res = await api.get<QueryDetailResponse>(
+      `/api/staff/queries/${queryID}`,
+    );
+    return normalizeQueryDetailResponse(res.data);
+  },
+
+  async acknowledgeQuery(queryID: string): Promise<{ query: QueryRecord }> {
+    const res = await api.post<{ query: QueryRecord }>(
+      `/api/staff/queries/${queryID}/acknowledge`,
+    );
+    return { ...res.data, query: normalizeQueryRecord(res.data?.query) };
+  },
+
+  async replyQuery(
+    queryID: string,
+    message: string,
+  ): Promise<{ query: QueryRecord; reply: QueryReplyRecord }> {
+    const res = await api.post<{ query: QueryRecord; reply: QueryReplyRecord }>(
+      `/api/staff/queries/${queryID}/reply`,
+      { message },
+    );
+    return { ...res.data, query: normalizeQueryRecord(res.data?.query) };
+  },
+
+  async resolveQuery(queryID: string): Promise<{ query: QueryRecord }> {
+    const res = await api.post<{ query: QueryRecord }>(
+      `/api/staff/queries/${queryID}/resolve`,
+    );
+    return { ...res.data, query: normalizeQueryRecord(res.data?.query) };
+  },
+
+  async closeQuery(queryID: string): Promise<{ query: QueryRecord }> {
+    const res = await api.post<{ query: QueryRecord }>(
+      `/api/staff/queries/${queryID}/close`,
+    );
+    return { ...res.data, query: normalizeQueryRecord(res.data?.query) };
   },
 };
 

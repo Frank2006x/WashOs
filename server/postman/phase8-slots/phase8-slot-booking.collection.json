@@ -1,0 +1,750 @@
+{
+  "info": {
+    "_postman_id": "90f5a18e-2a0a-4f89-a2fc-cc6b43d5575a",
+    "name": "WashOs Phase8 - Slot Booking And Intake Enforcement",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health - Ping",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/ping",
+          "host": ["{{baseUrl}}"],
+          "path": ["ping"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Ping returns 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Student Signup",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const seed = Date.now().toString();",
+              "pm.collectionVariables.set('student_name', 'Slot Student ' + seed.slice(-4));",
+              "pm.collectionVariables.set('student_reg_no', '24BCE' + seed.slice(-6));",
+              "pm.collectionVariables.set('student_email', 'slot.student.' + seed + '@washos.com');"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"{{student_name}}\",\n  \"reg_no\": \"{{student_reg_no}}\",\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/student/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "student", "signup"]
+        }
+      }
+    },
+    {
+      "name": "Auth - Student Signin",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{student_email}}\",\n  \"password\": \"{{student_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/student/signin",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "student", "signin"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Student signin returns 200', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('student_access_token', json.access_token || '');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student - Init Bag",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{student_access_token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/student/me/bag/init",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "student", "me", "bag", "init"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Bag init returns 201', function () { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('qr_payload', json.qr_payload || '');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student - Set Residence Floor",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const rawFloor = pm.collectionVariables.get('student_floor_no') || pm.environment.get('student_floor_no') || '1';",
+              "const parsed = Number(rawFloor);",
+              "const normalizedFloor = Number.isFinite(parsed) && parsed >= 1 && parsed <= 8 ? String(Math.trunc(parsed)) : '1';",
+              "pm.collectionVariables.set('student_floor_no', normalizedFloor);",
+              "pm.environment.set('student_floor_no', normalizedFloor);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Set location returns 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_access_token}}"
+          },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"floor_no\": {{student_floor_no}},\n  \"room_no\": 101\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/student/me/location",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "student", "me", "location"]
+        }
+      }
+    },
+    {
+      "name": "Auth - Staff Signup",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const seed = Date.now().toString();",
+              "pm.collectionVariables.set('staff_name', 'Slot Staff ' + seed.slice(-4));",
+              "pm.collectionVariables.set('staff_phone', '+9197' + seed.slice(-8));",
+              "pm.collectionVariables.set('staff_email', 'slot.staff.' + seed + '@washos.com');"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"{{staff_name}}\",\n  \"phone\": \"{{staff_phone}}\",\n  \"email\": \"{{staff_email}}\",\n  \"password\": \"{{staff_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/staff/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "staff", "signup"]
+        }
+      }
+    },
+    {
+      "name": "Auth - Staff Signin",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone\": \"{{staff_phone}}\",\n  \"password\": \"{{staff_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/staff/signin",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "staff", "signin"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Staff signin returns 200', function () { pm.response.to.have.status(200); });",
+              "let json = {};",
+              "try { json = pm.response.json(); } catch (e) {",
+              "  pm.expect.fail('Staff signin did not return JSON body');",
+              "}",
+              "const token = json.access_token || json.token || '';",
+              "pm.collectionVariables.set('staff_access_token', token);",
+              "pm.test('Staff signin returns access token', function () {",
+              "  pm.expect(token).to.be.a('string');",
+              "  pm.expect(token.length).to.be.greaterThan(20);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan Intake - Reject Without Slot",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{staff_access_token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"qr_code\": \"{{qr_payload}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/scan/intake",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "scan", "intake"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const token = pm.collectionVariables.get('staff_access_token') || '';",
+              "pm.test('staff_access_token is set before intake test', function () {",
+              "  pm.expect(token.length).to.be.greaterThan(20);",
+              "});",
+              "if (pm.response.code === 401) {",
+              "  pm.expect.fail('Unauthorized: staff_access_token is missing/expired. Re-run Staff Signin and ensure token is saved.');",
+              "}",
+              "pm.test('Intake without slot returns 409', function () {",
+              "  pm.expect(pm.response.code).to.eql(409);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student - Available Slots (Today)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const existing = pm.collectionVariables.get('slot_date');",
+              "const envDate = pm.environment.get('slot_date');",
+              "const validDate = (v) => /^\\d{4}-\\d{2}-\\d{2}$/.test(v || '');",
+              "if (validDate(existing)) {",
+              "  pm.environment.set('slot_date', existing);",
+              "} else if (validDate(envDate)) {",
+              "  pm.collectionVariables.set('slot_date', envDate);",
+              "} else {",
+              "  const now = new Date();",
+              "  const ist = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));",
+              "  const yyyy = ist.getFullYear();",
+              "  const mm = String(ist.getMonth() + 1).padStart(2, '0');",
+              "  const dd = String(ist.getDate()).padStart(2, '0');",
+              "  const computedDate = `${yyyy}-${mm}-${dd}`;",
+              "  pm.collectionVariables.set('slot_date', computedDate);",
+              "  pm.environment.set('slot_date', computedDate);",
+              "}",
+              "const rawFloor = pm.collectionVariables.get('student_floor_no') || pm.environment.get('student_floor_no') || '1';",
+              "const parsedFloor = Number(rawFloor);",
+              "const normalizedFloor = Number.isFinite(parsedFloor) && parsedFloor >= 1 && parsedFloor <= 8 ? String(Math.trunc(parsedFloor)) : '1';",
+              "pm.collectionVariables.set('student_floor_no', normalizedFloor);",
+              "pm.environment.set('student_floor_no', normalizedFloor);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{student_access_token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/student/me/slots/available?date={{slot_date}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "student", "me", "slots", "available"],
+          "query": [{ "key": "date", "value": "{{slot_date}}" }]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 409) {",
+              "  const bodyText = pm.response.text();",
+              "  pm.test('Slots schema configured', function () {",
+              "    pm.expect(bodyText).to.not.include('slot schedule is not configured');",
+              "  });",
+              "  if (bodyText.includes('slot schedule is not configured')) {",
+              "    pm.expect.fail('DB schema missing: apply server/sql/schema.sql and server/sql/seed.sql before Phase8 tests.');",
+              "  }",
+              "}",
+              "pm.test('Available slots returns 200', function () { pm.response.to.have.status(200); });",
+              "let json = {};",
+              "try { json = pm.response.json(); } catch (e) {",
+              "  pm.expect.fail('Available slots response is not JSON');",
+              "}",
+              "const slots = Array.isArray(json.slots) ? json.slots : [];",
+              "const resolvedDate = pm.collectionVariables.get('slot_date') || pm.environment.get('slot_date') || (typeof json.date === 'string' ? json.date.slice(0, 10) : '');",
+              "if (resolvedDate) {",
+              "  pm.collectionVariables.set('slot_date', resolvedDate);",
+              "  pm.environment.set('slot_date', resolvedDate);",
+              "}",
+              "pm.test('Slots array exists', function () {",
+              "  pm.expect(Array.isArray(json.slots)).to.eql(true);",
+              "});",
+              "if (!slots.length) {",
+              "  const dateVal = pm.collectionVariables.get('slot_date') || pm.environment.get('slot_date') || 'unresolved';",
+              "  const floorVal = pm.collectionVariables.get('student_floor_no') || pm.environment.get('student_floor_no') || 'unresolved';",
+              "  const bodyText = pm.response.text();",
+              "  pm.expect.fail(`No eligible slots for date ${dateVal} and floor ${floorVal}. Response: ${bodyText}`);",
+              "} else {",
+              "  pm.test('At least one eligible slot exists', function () {",
+              "    pm.expect(slots.length).to.be.greaterThan(0);",
+              "  });",
+              "  const now = new Date();",
+              "  let selected = slots.find((s) => {",
+              "    const start = s.start_at ? new Date(s.start_at) : null;",
+              "    const end = s.end_at ? new Date(s.end_at) : null;",
+              "    return start && end && now >= start && now < end;",
+              "  });",
+              "  if (!selected) {",
+              "    selected = slots.find((s) => {",
+              "      const end = s.end_at ? new Date(s.end_at) : null;",
+              "      return end && now < end;",
+              "    });",
+              "  }",
+              "  if (!selected) { selected = slots[0] || {}; }",
+              "  pm.collectionVariables.set('slot_window_id', selected.slot_window_id || selected.id || '');",
+              "  pm.collectionVariables.set('base_start_floor', String(selected.allowed_start_floor || 1));",
+              "  pm.collectionVariables.set('base_end_floor', String(selected.allowed_end_floor || 2));",
+              "  const nextStart = Number(selected.allowed_end_floor || 2) + 1;",
+              "  const nextEnd = nextStart;",
+              "  pm.collectionVariables.set('next_start_floor', String(nextStart));",
+              "  pm.collectionVariables.set('next_end_floor', String(nextEnd));",
+              "  pm.collectionVariables.set('override_enabled_until', pm.collectionVariables.get('slot_date') + 'T23:59:59+05:30');",
+              "  pm.collectionVariables.set('selected_slot_start_at', selected.start_at || '');",
+              "  pm.collectionVariables.set('selected_slot_end_at', selected.end_at || '');",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student - Available Slots (Invalid Date Validation)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{student_access_token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/student/me/slots/available?date=04-04-2026",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "student", "me", "slots", "available"],
+          "query": [{ "key": "date", "value": "04-04-2026" }]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Invalid date returns 400', function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student - Book Slot",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_access_token}}"
+          },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"slot_window_id\": \"{{slot_window_id}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/student/me/slots/book",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "student", "me", "slots", "book"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Book slot returns 201', function () { pm.response.to.have.status(201); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student - Book Same Slot Again (Conflict)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_access_token}}"
+          },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"slot_window_id\": \"{{slot_window_id}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/student/me/slots/book",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "student", "me", "slots", "book"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Duplicate booking returns 409', function () { pm.response.to.have.status(409); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student - Slot Bookings",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{student_access_token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/student/me/slots/bookings?limit=10&offset=0",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "student", "me", "slots", "bookings"],
+          "query": [
+            { "key": "limit", "value": "10" },
+            { "key": "offset", "value": "0" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Slot bookings returns 200', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('Reservation exists', function () {",
+              "  pm.expect(Array.isArray(json.reservations)).to.eql(true);",
+              "  pm.expect(json.reservations.length).to.be.greaterThan(0);",
+              "});",
+              "const first = json.reservations[0];",
+              "pm.collectionVariables.set('reservation_id', first.reservation_id || '');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student - Cancel Slot Booking",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{student_access_token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/student/me/slots/{{reservation_id}}/cancel",
+          "host": ["{{baseUrl}}"],
+          "path": [
+            "api",
+            "student",
+            "me",
+            "slots",
+            "{{reservation_id}}",
+            "cancel"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Cancel slot returns 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student - Rebook Slot After Cancel",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_access_token}}"
+          },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"slot_window_id\": \"{{slot_window_id}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/student/me/slots/book",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "student", "me", "slots", "book"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Rebook after cancel returns 201', function () { pm.response.to.have.status(201); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scan Intake - Success With Valid Slot",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{staff_access_token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"qr_code\": \"{{qr_payload}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/scan/intake",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "scan", "intake"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Intake with slot returns 200 or 201', function () {",
+              "  pm.expect([200, 201]).to.include(pm.response.code);",
+              "});",
+              "let json = {};",
+              "try { json = pm.response.json(); } catch (e) {",
+              "  const bodyText = pm.response.text();",
+              "  pm.expect.fail('Intake expected JSON success but got non-JSON body: ' + bodyText);",
+              "}",
+              "const bookingId = (json.booking && (json.booking.booking_id || json.booking.id)) || '';",
+              "pm.test('Intake response contains booking id', function () { pm.expect(bookingId).to.not.eql(''); });",
+              "pm.collectionVariables.set('booking_id', bookingId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Staff - Slot Utilization",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{staff_access_token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/staff/slots/utilization?date={{slot_date}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "staff", "slots", "utilization"],
+          "query": [{ "key": "date", "value": "{{slot_date}}" }]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Utilization returns 200', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('Utilization slots array exists', function () {",
+              "  pm.expect(Array.isArray(json.slots)).to.eql(true);",
+              "  pm.expect(json.slots.length).to.be.greaterThan(0);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Staff - Create Override",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{staff_access_token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"{{slot_date}}\",\n  \"base_start_floor\": {{base_start_floor}},\n  \"base_end_floor\": {{base_end_floor}},\n  \"next_start_floor\": {{next_start_floor}},\n  \"next_end_floor\": {{next_end_floor}},\n  \"enabled_until\": \"{{override_enabled_until}}\",\n  \"reason\": \"low volume test\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/staff/slots/override",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "staff", "slots", "override"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Create override returns 201', function () { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('override_id', json.override_id || '');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Staff - Disable Override",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{staff_access_token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/staff/slots/override/{{override_id}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "staff", "slots", "override", "{{override_id}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Disable override returns 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Role Check - Student Cannot Access Staff Utilization",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{student_access_token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/staff/slots/utilization?date={{slot_date}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "staff", "slots", "utilization"],
+          "query": [{ "key": "date", "value": "{{slot_date}}" }]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Student staff-utilization access denied', function () {",
+              "  pm.expect([401, 403]).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001" },
+    { "key": "student_password", "value": "password123" },
+    { "key": "student_floor_no", "value": "1" },
+    { "key": "student_access_token", "value": "" },
+    { "key": "staff_password", "value": "password123" },
+    { "key": "staff_access_token", "value": "" },
+    { "key": "slot_date", "value": "" },
+    { "key": "slot_window_id", "value": "" },
+    { "key": "reservation_id", "value": "" },
+    { "key": "booking_id", "value": "" },
+    { "key": "base_start_floor", "value": "1" },
+    { "key": "base_end_floor", "value": "2" },
+    { "key": "next_start_floor", "value": "3" },
+    { "key": "next_end_floor", "value": "3" },
+    { "key": "override_enabled_until", "value": "" },
+    { "key": "override_id", "value": "" },
+    { "key": "qr_payload", "value": "" }
+  ]
+}
