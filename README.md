@@ -1,101 +1,145 @@
-# WashOS
-🚀 **Smart. Structured. Seamless Laundry.**
+<div align="center">
 
-## Overview
-Managing laundry in high-density hostel environments is often a chaotic process characterized by long wait times, misplaced items, and machine availability conflicts. **WashOS** is a smart management system designed specifically for hostel ecosystems. It bridges the gap between students and laundry staff using QR-based tracking, intelligent slot scheduling, and real-time activity logging, ensuring a transparent and efficient laundry experience for everyone.
+  <img src="/assets/logo.png" alt="WashOS Logo" width="120" height="120" />
 
----
+  # WashOS
+  ### 🚀 Smart Laundry Coordination System for Modern Hostels
 
-## ⚡ Key Features
+  [![Build Status](https://img.shields.io/badge/Build-v1.0.0--beta-blueviolet?style=for-the-badge&logo=github)](https://github.com/vignesh/Solve-a-thon)
+  [![Tech Stack](https://img.shields.io/badge/Stack-Go%20%7C%20Fiber%20%7C%20Postgres%20%7C%20Expo-007ACC?style=for-the-badge)](https://github.com/vignesh/Solve-a-thon)
+  [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-*   **🔍 QR-Based Bag Tracking:** A standardized 3-stage scanning flow (Drop-off → Processing → Ready) ensuring every item is accounted for.
-*   **📅 Slot-Based Scheduling:** Advanced booking system to prevent overcrowding and ensure predictable laundry times.
-*   **🏢 Floor-Wise Allocation:** Strategic slot distribution based on hostel floors with **Peak Flexibility**—opening unbooked slots to all floors after 12:00 PM.
-*   **🪵 Machine Logging:** Precision tracking of machine usage, including specific machine IDs and time-slot mapping.
-*   **🔔 Real-Time Notifications:** Instant alerts via push notifications when laundry status changes or items are ready for pickup.
-*   **📦 Lost & Found Support:** Dedicated module for reporting and tracking misplaced laundry items.
-*   **🖼️ Image-Based Matching (Conceptual):** Future-ready AI vision concept to verify bag contents and reduce identity errors.
-*   **🔒 IoT-Based Lock Mechanism (Future):** Planned integration with smart lockers and machine locks for automated secure collection.
+  **Ensuring transparency, accountability, and efficiency in campus laundry cycles.**
+
+</div>
 
 ---
 
-## 🔄 How It Works
+## 📖 Overview
 
-1.  **Schedule:** Student selects an available slot via the WashOS app.
-2.  **Drop-off:** Student drops off the bag; Staff scans the unique **Bag QR** to mark it as `Dropped Off`.
-3.  **Process:** Staff assigns the bag to a washer/dryer. The system logs the **Machine ID** and start time.
-4.  **Ready:** Once drying is complete, staff scans the bag to mark it `Ready for Pickup` and assigns a storage **Row Number**.
-5.  **Collect:** Student receives a notification, presents their identity, and staff performs the final scan-out.
+### The Problem
+Traditional hostel laundry systems suffer from manual entry errors, misplaced clothing bags, long queues, and poor communication between students and staff. "Who took my bag?" and "Is my laundry ready yet?" are questions that define the daily struggle of campus living.
+
+### The Solution: WashOS
+WashOS is a **production-grade laundry workflow engine** that replaces chaos with clarity. By combining secure QR identities with automated status tracking and real-time notifications, WashOS provides a seamless end-to-end management layer for hostel facilities.
+
+### Why It Matters
+- **Scalability:** Handles thousands of bags across multiple blocks easily.
+- **Accountability:** Every status change is logged with a timestamp and responsible actor.
+- **Efficiency:** Reduces idle machine time and prevents pickup bottlenecks.
+
+---
+
+## ✨ Key Features
+
+| Feature | Description |
+| :--- | :--- |
+| **🔍 QR-Based Tracking** | A robust 3-stage scanning system (Drop → Process → Ready) for full lifecycle visibility. |
+| **📅 Slot-Based Scheduling** | Intelligent load balancing to prevent simultaneous drop-off peaks. |
+| **🏢 Floor-Wise Flexibility** | Smart scheduling with a **±1 day window** to accommodate academic deadlines and personal needs. |
+| **🪵 Machine-Level Logging** | Records precise machine IDs and time-slot usage for maintenance and audit. |
+| **📦 Lost & Found System** | Integrated image-to-contact mapping for quick resolution of misplaced items. |
+| **🖼️ AI Similarity Matching** | Conceptual feature using vision models to verify bag contents during cycles. |
+| **🔒 IoT-Based Lock** | Future integration for smart lockers preventing incorrect bag placement. |
+| **📍 Digital Laundry Shelf** | Automated row/shelf assignments for organized, stress-free pickups. |
+
+---
+
+## 🏗️ System Architecture
+
+WashOS is built on a **State Machine Architecture** that enforces strict lifecycle transitions.
+
+### 🎭 Core Roles
+- **Student:** Manages their persistent QR identity, books slots, and tracks real-time progress.
+- **Staff:** Executes the workflow via quick scans, manages machine occupancy, and triggers ready alerts.
+
+### 🔄 Lifecycle Workflow
+`Created` → `Dropped Off` → `Washing` → `Wash Done` → `Drying` → `Dry Done` → `Ready for Pickup` (Row Assigned) → `Collected`
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Component | Technology |
-| :--- | :--- |
-| **Frontend** | React Native (Expo) |
-| **Backend** | Go (Fiber Framework) |
-| **Database** | PostgreSQL + sqlc |
-| **Auth** | JWT (Role-Based Access Control) |
+### 📱 Frontend
+- **Framework:** React Native (Expo)
+- **Language:** TypeScript
+- **State Management:** React Context API
+- **Styling:** NativeWind (Tailwind CSS)
+
+### ⚙️ Backend
+- **Framework:** Go (Fiber)
+- **Database:** PostgreSQL + sqlc (Type-safe SQL)
+- **API Pattern:** RESTful with JWT Auth
+
+### 🔧 Tools & Libraries
+- **Scanner:** Expo Camera / BarcodeScanner
+- **Notifications:** Expo Push Services
+- **Schema:** sqlc-generated type-safe models
 
 ---
 
-## 📦 Installation & Setup
+## 🚀 Installation & Setup
 
-### Backend (Go Server)
-1. Navigate to the server directory:
-   ```bash
-   cd server
-   ```
-2. Install dependencies:
-   ```bash
-   go mod download
-   ```
-3. Setup environment variables (Create `.env` based on `.env.example`).
-4. Run the server:
-   ```bash
-   go run cmd/api/main.go
-   ```
+### 📱 Client Setup (Expo)
+```bash
+# Navigate to client
+cd client
 
-### Frontend (Expo Client)
-1. Navigate to the client directory:
-   ```bash
-   cd client
-   ```
-2. Install dependencies using **pnpm**:
-   ```bash
-   pnpm install
-   ```
-3. Start the development server:
-   ```bash
-   pnpm dlx expo start
-   ```
+# Install dependencies
+pnpm install
+
+# Start the Expo development server
+npx expo start
+```
+
+### ⚙️ Server Setup (Go)
+```bash
+# Navigate to server
+cd server
+
+# Download dependencies
+go mod download
+
+# Run the API server
+go run cmd/api/main.go
+```
 
 ---
 
-## 📖 Usage
+## 📸 Screens & Demo
 
-### For Students
-*   **Dashboard:** View current booking status and machine availability.
-*   **Booking:** Reserve slots based on your floor's schedule.
-*   **Identity:** Present your persistent QR code for all transactions.
-
-### For Laundry Staff
-*   **Scanner:** Use the built-in scanner to transition bags through the lifecycle.
-*   **Queue:** Manage active washing and drying runs across all machines.
-*   **Notification:** Trigger ready alerts with one tap after processing.
+| Dashboard | QR Scanner | Staff Panel |
+| :---: | :---: | :---: |
+| <img src="/assets/screens/dashboard_placeholder.png" width="200" /> | <img src="/assets/screens/scanner_placeholder.png" width="200" /> | <img src="/assets/screens/staff_panel_placeholder.png" width="200" /> |
+| *Real-time timeline* | *Instant bag validation* | *Queue management* |
 
 ---
 
 ## 🔮 Future Scope
-*   **AI Vision:** Implementation of image-based verification for bag contents during drop-off.
-*   **Smart Lockers:** Integration with IoT-enabled lockers for 24/7 secure laundry collection.
-*   **Analytics:** Detailed reporting for hostel wardens on machine utilization and staff efficiency.
+
+- **🛠️ IoT Machine Integration:** Hardware locks on machines that only open for assigned bags.
+- **🔄 Round-Robin Assignment:** Automated machine load balancing to extend hardware lifespan.
+- **📊 Admin Analytics:** Detailed heatmaps of laundry traffic for hostel wardens.
+- **🤖 Autonomous Sort:** Fully robotic sorting integration (Conceptual V3).
+
+---
+
+## 🤝 Contribution
+
+We welcome contributions from the community!
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ---
 
 ## 📄 License
-This project is licensed under the [MIT License](LICENSE).
+
+Distributed under the **MIT License**. See `LICENSE` for more information.
 
 ---
-*Developed for the SIH 2025 Solve-a-thon.*
+<div align="center">
+  <sub>Developed for the <b>SIH 2025 Solve-a-thon</b>. Build with ❤️ by the WashOS Team.</sub>
+</div>
