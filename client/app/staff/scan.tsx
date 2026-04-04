@@ -24,51 +24,6 @@ type StaffPhase =
   | "dry_finish"
   | "ready";
 
-const PHASES: { key: StaffPhase; label: string; icon: any }[] = [
-  { key: "intake", label: "Intake", icon: "inbox-arrow-down" },
-  { key: "wash_start", label: "Wash Start", icon: "washing-machine" },
-  { key: "wash_finish", label: "Wash Finish", icon: "washing-machine-off" },
-  { key: "dry_start", label: "Dry Start", icon: "tumble-dryer" },
-  { key: "dry_finish", label: "Dry Finish", icon: "tumble-dryer-off" },
-  { key: "ready", label: "Ready", icon: "check-circle-outline" },
-];
-
-const PHASE_HINTS: Record<
-  StaffPhase,
-  { expectedStatus: string; action: string; note: string }
-> = {
-  intake: {
-    expectedStatus: "No active booking for bag",
-    action: "Scan student bag QR to create and drop off booking.",
-    note: "First phase only.",
-  },
-  wash_start: {
-    expectedStatus: "dropped_off",
-    action: "Select washer machine then scan bag QR.",
-    note: "Starts wash run and marks booking as washing.",
-  },
-  wash_finish: {
-    expectedStatus: "washing",
-    action: "Select same washer machine then scan bag QR.",
-    note: "Finishes wash run and marks booking as wash_done.",
-  },
-  dry_start: {
-    expectedStatus: "wash_done",
-    action: "Select dryer machine then scan bag QR.",
-    note: "Starts dry run and marks booking as drying.",
-  },
-  dry_finish: {
-    expectedStatus: "drying",
-    action: "Select same dryer machine then scan bag QR.",
-    note: "Finishes dry run and marks booking as dry_done.",
-  },
-  ready: {
-    expectedStatus: "dry_done",
-    action: "Enter shelf/row and scan bag QR.",
-    note: "Marks booking ready_for_pickup and notifies student.",
-  },
-};
-
 export default function StaffIntakeScanScreen() {
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
@@ -85,6 +40,48 @@ export default function StaffIntakeScanScreen() {
     }
   }, [initialPhase]);
 
+  const phasesList: { key: StaffPhase; label: string; icon: any }[] = useMemo(() => [
+    { key: "intake", label: t("staff.phases.intake.label", "Intake"), icon: "inbox-arrow-down" },
+    { key: "wash_start", label: t("staff.phases.wash_start.label", "Wash Start"), icon: "washing-machine" },
+    { key: "wash_finish", label: t("staff.phases.wash_finish.label", "Wash Finish"), icon: "washing-machine-off" },
+    { key: "dry_start", label: t("staff.phases.dry_start.label", "Dry Start"), icon: "tumble-dryer" },
+    { key: "dry_finish", label: t("staff.phases.dry_finish.label", "Dry Finish"), icon: "tumble-dryer-off" },
+    { key: "ready", label: t("staff.phases.ready.label", "Ready"), icon: "check-circle-outline" },
+  ], [t]);
+
+  const phaseHints: Record<StaffPhase, { expectedStatus: string; action: string; note: string }> = useMemo(() => ({
+    intake: {
+      expectedStatus: t("staff.phase_hints.intake.expectedStatus", "No active booking for bag"),
+      action: t("staff.phase_hints.intake.action", "Scan student bag QR to create and drop off booking."),
+      note: t("staff.phase_hints.intake.note", "First phase only."),
+    },
+    wash_start: {
+      expectedStatus: t("staff.phase_hints.wash_start.expectedStatus", "dropped_off"),
+      action: t("staff.phase_hints.wash_start.action", "Select washer machine then scan bag QR."),
+      note: t("staff.phase_hints.wash_start.note", "Starts wash run and marks booking as washing."),
+    },
+    wash_finish: {
+      expectedStatus: t("staff.phase_hints.wash_finish.expectedStatus", "washing"),
+      action: t("staff.phase_hints.wash_finish.action", "Select same washer machine then scan bag QR."),
+      note: t("staff.phase_hints.wash_finish.note", "Finishes wash run and marks booking as wash_done."),
+    },
+    dry_start: {
+      expectedStatus: t("staff.phase_hints.dry_start.expectedStatus", "wash_done"),
+      action: t("staff.phase_hints.dry_start.action", "Select dryer machine then scan bag QR."),
+      note: t("staff.phase_hints.dry_start.note", "Starts dry run and marks booking as drying."),
+    },
+    dry_finish: {
+      expectedStatus: t("staff.phase_hints.dry_finish.expectedStatus", "drying"),
+      action: t("staff.phase_hints.dry_finish.action", "Select same dryer machine then scan bag QR."),
+      note: t("staff.phase_hints.dry_finish.note", "Finishes dry run and marks booking as dry_done."),
+    },
+    ready: {
+      expectedStatus: t("staff.phase_hints.ready.expectedStatus", "dry_done"),
+      action: t("staff.phase_hints.ready.action", "Enter shelf/row and scan bag QR."),
+      note: t("staff.phase_hints.ready.note", "Marks booking ready_for_pickup and notifies student."),
+    },
+  }), [t]);
+
   const [machines, setMachines] = useState<MachineRecord[]>([]);
   const [machineLoading, setMachineLoading] = useState(false);
   const [selectedMachineID, setSelectedMachineID] = useState<string>("");
@@ -93,7 +90,7 @@ export default function StaffIntakeScanScreen() {
     "success" | "error" | null
   >(null);
   const [lastScanMessage, setLastScanMessage] = useState<string>("");
-  const hint = PHASE_HINTS[phase];
+  const hint = phaseHints[phase];
 
   const machineType = useMemo(() => {
     if (phase === "wash_start" || phase === "wash_finish") return "washer";
@@ -145,25 +142,22 @@ export default function StaffIntakeScanScreen() {
 
       if (phase === "intake") {
         await staffService.intakeScan(qrCode);
-        message = t(
-          "staff.intake_success",
-          "Bag intake recorded successfully.",
-        );
+        message = t("staff.intake_success", "Bag intake recorded successfully.");
       } else if (phase === "wash_start") {
         await staffService.scanWashStart(qrCode, selectedMachineID);
-        message = "Wash started.";
+        message = t("staff.wash_started", "Wash started.");
       } else if (phase === "wash_finish") {
         await staffService.scanWashFinish(qrCode, selectedMachineID);
-        message = "Wash finished.";
+        message = t("staff.wash_finished", "Wash finished.");
       } else if (phase === "dry_start") {
         await staffService.scanDryStart(qrCode, selectedMachineID);
-        message = "Dry started.";
+        message = t("staff.dry_started", "Dry started.");
       } else if (phase === "dry_finish") {
         await staffService.scanDryFinish(qrCode, selectedMachineID);
-        message = "Dry finished.";
+        message = t("staff.dry_finished", "Dry finished.");
       } else {
         await staffService.scanReady(qrCode, rowNo.trim());
-        message = "Marked ready for pickup.";
+        message = t("staff.ready_success", "Marked ready for pickup.");
       }
 
       setLastScanStatus("success");
@@ -201,12 +195,12 @@ export default function StaffIntakeScanScreen() {
           <Text
             className={`${isCompact ? "text-2xl" : "text-3xl"} font-extrabold text-card-foreground dark:text-card-foreground-dark`}
           >
-            Scan Center
+            {t("staff.scan_center_title", "Scan Center")}
           </Text>
           <Text
             className={`mt-2 ${isCompact ? "text-xs leading-5" : "text-sm leading-6"} text-muted-foreground dark:text-muted-foreground-dark`}
           >
-            Choose phase, complete required inputs, then scan bag QR.
+            {t("staff.scan_center_subtitle", "Choose phase, complete required inputs, then scan bag QR.")}
           </Text>
         </View>
 
@@ -217,7 +211,7 @@ export default function StaffIntakeScanScreen() {
           contentContainerStyle={{ paddingRight: 16 }}
         >
           <View style={{ flexDirection: "row", gap: 12 }}>
-            {PHASES.map((item) => {
+            {phasesList.map((item) => {
               const active = item.key === phase;
               return (
                 <Pressable
@@ -259,12 +253,12 @@ export default function StaffIntakeScanScreen() {
           className={`mt-4 rounded-3xl bg-card dark:bg-card-dark ${isCompact ? "p-4" : "p-5"}`}
         >
           <Text className="text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
-            Phase Rule
+            {t("staff.phase_rule", "Phase Rule")}
           </Text>
           <Text
             className={`${isCompact ? "mt-2 text-xs" : "mt-3 text-sm"} font-semibold text-card-foreground dark:text-card-foreground-dark`}
           >
-            Expected status: {hint.expectedStatus}
+            {t("staff.expected_status", "Expected status: {{status}}", { status: hint.expectedStatus })}
           </Text>
           <Text
             className={`mt-2 ${isCompact ? "text-xs leading-5" : "text-sm leading-6"} text-muted-foreground dark:text-muted-foreground-dark`}
@@ -283,7 +277,7 @@ export default function StaffIntakeScanScreen() {
             <Text
               className={`${isCompact ? "text-xs" : "text-sm"} font-bold text-card-foreground dark:text-card-foreground-dark`}
             >
-              Select {machineType} machine
+              {t("staff.select_machine_type", "Select {{type}} machine", { type: machineType })}
             </Text>
 
             {machineLoading ? (
@@ -292,7 +286,7 @@ export default function StaffIntakeScanScreen() {
               </View>
             ) : machines.length === 0 ? (
               <Text className="mt-3 text-sm text-muted-foreground dark:text-muted-foreground-dark">
-                No {machineType} machines available.
+                {t("staff.no_machines_available", "No {{type}} machines available.", { type: machineType })}
               </Text>
             ) : (
               <View
@@ -351,7 +345,7 @@ export default function StaffIntakeScanScreen() {
             <Text
               className={`mb-2 ${isCompact ? "text-xs" : "text-sm"} font-bold text-card-foreground dark:text-card-foreground-dark`}
             >
-              Enter shelf/row
+              {t("staff.enter_row", "Enter shelf/row")}
             </Text>
             <TextInput
               value={rowNo}
@@ -369,7 +363,7 @@ export default function StaffIntakeScanScreen() {
         >
           {canScan ? (
             <QRScanner
-              title={`Awaiting ${phase.replaceAll("_", " ")} scan...`}
+              title={t("staff.awaiting_scan", "Awaiting {{phase}} scan...", { phase: phase.replaceAll("_", " ") }) as string}
               onScan={handleScan}
               showScanDetails={false}
             />
@@ -385,8 +379,8 @@ export default function StaffIntakeScanScreen() {
                 className={`max-w-[220px] text-center font-semibold ${isCompact ? "text-sm leading-5" : "text-base leading-6"} text-muted-foreground dark:text-muted-foreground-dark`}
               >
                 {requiresMachine
-                  ? "Select a machine first to unlock scanner"
-                  : "Enter shelf/row first to unlock scanner"}
+                  ? t("staff.unlock_scanner_machine", "Select a machine first to unlock scanner")
+                  : t("staff.unlock_scanner_row", "Enter shelf/row first to unlock scanner")}
               </Text>
             </View>
           )}
@@ -405,7 +399,9 @@ export default function StaffIntakeScanScreen() {
                 lastScanStatus === "success" ? "text-green-200" : "text-red-200"
               }`}
             >
-              {lastScanStatus === "success" ? "Scan successful" : "Scan failed"}
+              {lastScanStatus === "success" 
+                ? t("staff.scan_success_label", "Scan successful") 
+                : t("staff.scan_failed_label", "Scan failed")}
             </Text>
             <Text className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground-dark">
               {lastScanMessage}

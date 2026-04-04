@@ -14,7 +14,17 @@
     "error": "Error",
     "rotate": "Rotate",
     "validation": "Validation",
-    "success": "Success"
+    "success": "Success",
+    "statuses": {
+      "created": "Order Created",
+      "dropped_off": "Bag Dropped Off",
+      "washing": "Washing",
+      "wash_done": "Wash Finished",
+      "drying": "Drying",
+      "dry_done": "Drying Finished",
+      "ready_for_pickup": "Ready for Pickup",
+      "collected": "Collected"
+    }
   },
   "login": {
     "welcome": "Welcome back",
@@ -43,7 +53,11 @@
     "err_required_regno": "Reg No is required for student signup",
     "success_signup": "Account created. Please sign in.",
     "err_auth_failed": "Auth Failed",
-    "err_try_again": "Please try again"
+    "err_try_again": "Please try again",
+    "email_example": "student1@washos.com",
+    "phone_example": "+91-7777777701",
+    "regno_example": "REG001",
+    "password_example": "password123"
   },
   "profile": {
     "logout": "Log Out",
@@ -74,7 +88,25 @@
     "rotate_qr": "Rotate QR Code",
     "rotate_qr_desc": "This will invalidate your current QR code and generate a new one. Continue?",
     "err_rotate": "Failed to rotate",
-    "err_gen_qr": "Failed to generate QR"
+    "err_gen_qr": "Failed to generate QR",
+    "residence_info": "Residence Info",
+    "residence_desc": "Add your floor and room so laundry delivery is accurate.",
+    "floor_label": "Floor Number",
+    "room_label": "Room Number",
+    "save_residence": "Save Floor and Room",
+    "floor": "Floor",
+    "room": "Room",
+    "current_residence": "Current Residence",
+    "residence_updated": "Floor and room updated.",
+    "err_residence_floor": "Please enter a valid floor number.",
+    "err_residence_room": "Please enter a valid room number.",
+    "err_save_residence": "Failed to save residence.",
+    "avg_service_rating": "Average Service Rating",
+    "avg_handling_rating": "Average Handling Rating",
+    "avg_overall_rating": "Overall Rating",
+    "rating_count": "({{count}} queries)",
+    "role_student": "Student",
+    "role_staff": "Laundry Staff"
   },
   "orders": {
     "title": "Your Orders",
@@ -108,5 +140,87 @@
     "invalid_json_data": "The scanned QR code does not contain valid JSON data.",
     "scan_again": "↩ Scan Again",
     "null_value": "null"
+  },
+  "booking": {
+    "failed_load": "Failed to load booking",
+    "pickup_success": "Pickup completed and order collected.",
+    "pickup_failed": "Failed to complete pickup.",
+    "tracking_details": "Tracking Details",
+    "order_number": "Order #",
+    "order_subtitle": "Full status and detailed timeline.",
+    "assigned_row": "Assigned Row: {{row}}",
+    "loading_tracking": "Loading tracking data...",
+    "checkout_title": "Checkout & Pickup",
+    "checkout_desc": "Scan your laundry bag QR to verify possession and finalize checkout.",
+    "checkout_scan_title": "Checkout Scan",
+    "raw_log_title": "Raw Event Log",
+    "no_events": "No events recorded yet.",
+    "machine_label": "Machine: {{code}}",
+    "staff_hint": "Staff phase transitions are scan-only. Use the Scan Center for intake, wash, dry, and ready steps.",
+    "err_id_not_found": "booking id not found from pickup verification"
+  },
+  "tracking": {
+    "order_placed": "Order Placed",
+    "washing": "Washing",
+    "drying": "Drying",
+    "ready": "Ready",
+    "collected": "Collected",
+    "machine": "Machine: {{code}}"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Track unread alerts and your read history.",
+    "failed_load": "Failed to load notifications",
+    "failed_mark_read": "Failed to mark notification as read",
+    "no_notifications": "No notifications yet",
+    "unread_title": "Unread ({{count}})",
+    "no_unread": "No unread notifications.",
+    "new_badge": "New",
+    "row_label": "Row: {{row}}",
+    "mark_read_button": "Mark Read",
+    "read_title": "Read ({{count}})",
+    "no_read": "No read notifications."
+  },
+  "staff": {
+    "home_title": "Laundry Staff",
+    "home_desc": "Select a workflow action below to jump straight to the Scan Center.",
+    "scan_center_title": "Scan Center",
+    "scan_center_subtitle": "Choose phase, complete required inputs, then scan bag QR.",
+    "scan_center_button": "Open Scan Center",
+    "workflow_phases": "Workflow Phases",
+    "phase_rule": "Phase Rule",
+    "expected_status": "Expected status: {{status}}",
+    "select_machine_type": "Select {{type}} machine",
+    "no_machines_available": "No {{type}} machines available.",
+    "enter_row": "Enter shelf/row",
+    "awaiting_scan": "Awaiting {{phase}} scan...",
+    "unlock_scanner_machine": "Select a machine first to unlock scanner",
+    "unlock_scanner_row": "Enter shelf/row first to unlock scanner",
+    "scan_success_label": "Scan successful",
+    "scan_failed_label": "Scan failed",
+    "machine_load_failed": "Failed to load machine list.",
+    "intake_success": "Bag intake recorded successfully.",
+    "intake_failed": "Failed to record bag intake.",
+    "wash_started": "Wash started.",
+    "wash_finished": "Wash finished.",
+    "dry_started": "Dry started.",
+    "dry_finished": "Dry finished.",
+    "ready_success": "Marked ready for pickup.",
+    "phases": {
+      "intake": { "label": "Intake", "desc": "Collect bag, start journey" },
+      "wash_start": { "label": "Wash Start", "desc": "Assign a washer" },
+      "wash_finish": { "label": "Wash Finish", "desc": "Complete wash cycle" },
+      "dry_start": { "label": "Dry Start", "desc": "Assign a dryer" },
+      "dry_finish": { "label": "Dry Finish", "desc": "Complete dry cycle" },
+      "ready": { "label": "Ready", "desc": "Assign pickup row" }
+    },
+    "phase_hints": {
+      "intake": { "expectedStatus": "No active booking for bag", "action": "Scan student bag QR to create and drop off booking.", "note": "First phase only." },
+      "wash_start": { "expectedStatus": "dropped_off", "action": "Select washer machine then scan bag QR.", "note": "Starts wash run and marks booking as washing." },
+      "wash_finish": { "expectedStatus": "washing", "action": "Select same washer machine then scan bag QR.", "note": "Finishes wash run and marks booking as wash_done." },
+      "dry_start": { "expectedStatus": "wash_done", "action": "Select dryer machine then scan bag QR.", "note": "Starts dry run and marks booking as drying." },
+      "dry_finish": { "expectedStatus": "drying", "action": "Select same dryer machine then scan bag QR.", "note": "Finishes dry run and marks booking as dry_done." },
+      "ready": { "expectedStatus": "dry_done", "action": "Enter shelf/row and scan bag QR.", "note": "Marks booking ready_for_pickup and notifies student." }
+    }
   }
 }

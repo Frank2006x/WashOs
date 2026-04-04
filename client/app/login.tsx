@@ -40,7 +40,7 @@ export default function Index() {
   const isDark = colorScheme === "dark";
   const identifierLabel = role === "student" ? t("login.email", "Email") : t("login.phone", "Phone");
   const identifierPlaceholder =
-    role === "student" ? "student1@washos.com" : "+91-7777777701";
+    role === "student" ? t("login.email_example", "student1@washos.com") : t("login.phone_example", "+91-7777777701");
 
   const resetForm = () => {
     setName("");
@@ -52,7 +52,7 @@ export default function Index() {
   const validate = (): boolean => {
     const valTitle = t("common.validation", "Validation");
     if (!identifier.trim() || !password) {
-      Alert.alert(valTitle, t("login.err_required_both", `${identifierLabel} and password are required`));
+      Alert.alert(valTitle, t("login.err_required_both", { identifier: identifierLabel }));
       return false;
     }
 
@@ -79,7 +79,6 @@ export default function Index() {
     try {
       if (mode === "signin") {
         await login(role, identifier, password);
-        // Root _layout.tsx will redirect to /(tabs) automatically when isAuthenticated becomes true
         return;
       }
 
@@ -107,9 +106,6 @@ export default function Index() {
       setSubmitting(false);
     }
   };
-
-  // While loading from storage, show nothing (root layout shows a blank Slot)
-  // We don't need a loading guard here since root _layout handles navigation
 
   return (
     <SafeAreaView className="flex-1 bg-background dark:bg-background-dark">
@@ -217,7 +213,7 @@ export default function Index() {
                     <TextInput
                       value={regNo}
                       onChangeText={setRegNo}
-                      placeholder="REG001"
+                      placeholder={t("login.regno_example", "REG001")}
                       autoCapitalize="characters"
                       placeholderTextColor={isDark ? "#b7b5a9" : "#83827d"}
                       className="rounded-xl border border-border bg-card px-4 py-3 text-foreground dark:border-border-dark dark:bg-card-dark dark:text-foreground-dark"
@@ -251,7 +247,7 @@ export default function Index() {
                       value={password}
                       onChangeText={setPassword}
                       secureTextEntry={secureText}
-                      placeholder="password123"
+                      placeholder={t("login.password_example", "password123")}
                       placeholderTextColor={isDark ? "#b7b5a9" : "#83827d"}
                       className="flex-1 py-3 text-foreground dark:text-foreground-dark"
                     />

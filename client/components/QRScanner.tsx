@@ -33,7 +33,13 @@ export interface QRScannerProps {
   singleScan?: boolean;
 }
 
-type ScanState = "loading" | "denied" | "scanning" | "processing" | "success" | "error";
+type ScanState =
+  | "loading"
+  | "denied"
+  | "scanning"
+  | "processing"
+  | "success"
+  | "error";
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -55,12 +61,8 @@ const QRScanner: React.FC<QRScannerProps> = ({
   );
   const [scannedData, setScannedData] = useState<any>(null);
   const [rawValue, setRawValue] = useState<string>("");
-<<<<<<< HEAD
   const [hasError, setHasError] = useState(false);
-=======
-  const [parseError, setParseError] = useState(false);
   const [scanFrameSize, setScanFrameSize] = useState(240);
->>>>>>> 009b3637d449d7a9b252f8c6e163c39d567019b4
 
   const hasScanned = useRef(false);
   const flashAnim = useRef(new Animated.Value(0)).current;
@@ -81,20 +83,24 @@ const QRScanner: React.FC<QRScannerProps> = ({
   const [flashColor, setFlashColor] = useState<string>(colors.success);
 
   // ── Flash animation on scan success/error ──────────────────────────────
-  const triggerFlash = useCallback((type: "success" | "error" = "success") => {
-    setFlashColor(type === "error" ? colors.error : colors.success);
-    flashAnim.setValue(1);
-    Animated.timing(flashAnim, {
-      toValue: 0,
-      duration: 600,
-      useNativeDriver: false,
-    }).start();
-  }, [flashAnim]);
+  const triggerFlash = useCallback(
+    (type: "success" | "error" = "success") => {
+      setFlashColor(type === "error" ? colors.error : colors.success);
+      flashAnim.setValue(1);
+      Animated.timing(flashAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: false,
+      }).start();
+    },
+    [flashAnim],
+  );
 
   // ── Barcode handler ─────────────────────────────────────────────────────
   const handleBarCodeScanned = useCallback(
     async ({ data }: BarcodeScanningResult) => {
-      if ((singleScan && hasScanned.current) || scanState === "processing") return;
+      if ((singleScan && hasScanned.current) || scanState === "processing")
+        return;
       hasScanned.current = true;
 
       setRawValue(data);
@@ -202,13 +208,8 @@ const QRScanner: React.FC<QRScannerProps> = ({
       </View>
 
       {/* Camera / Result area */}
-<<<<<<< HEAD
       {scanState === "scanning" || scanState === "processing" ? (
-        <View style={styles.cameraWrapper}>
-=======
-      {scanState === "scanning" ? (
         <View style={styles.cameraWrapper} onLayout={handleCameraLayout}>
->>>>>>> 009b3637d449d7a9b252f8c6e163c39d567019b4
           <CameraView
             style={styles.camera}
             facing="back"
@@ -233,16 +234,32 @@ const QRScanner: React.FC<QRScannerProps> = ({
           </View>
 
           {scanState === "processing" && (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' }]}>
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  backgroundColor: "rgba(0,0,0,0.6)",
+                  justifyContent: "center",
+                  alignItems: "center",
+                },
+              ]}
+            >
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={{ color: 'white', marginTop: 12, fontWeight: '700' }}>Processing...</Text>
+              <Text
+                style={{ color: "white", marginTop: 12, fontWeight: "700" }}
+              >
+                Processing...
+              </Text>
             </View>
           )}
 
           {/* Flash success/error overlay */}
           <Animated.View
             pointerEvents="none"
-            style={[styles.flashOverlay, { opacity: flashAnim, backgroundColor: flashColor }]}
+            style={[
+              styles.flashOverlay,
+              { opacity: flashAnim, backgroundColor: flashColor },
+            ]}
           />
         </View>
       ) : (
