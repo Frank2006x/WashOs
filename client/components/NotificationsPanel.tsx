@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import {
   NotificationRecord,
   staffService,
@@ -56,6 +57,7 @@ function extractRowNo(payload: unknown): string | null {
 }
 
 export default function NotificationsPanel() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isCompact = width < 360;
@@ -81,10 +83,10 @@ export default function NotificationsPanel() {
       setError(
         e?.response?.data?.error ||
           e?.message ||
-          "Failed to load notifications",
+          t("notifications.failed_load", "Failed to load notifications"),
       );
     }
-  }, [service]);
+  }, [service, t]);
 
   useEffect(() => {
     (async () => {
@@ -119,11 +121,11 @@ export default function NotificationsPanel() {
         setError(
           e?.response?.data?.error ||
             e?.message ||
-            "Failed to mark notification as read",
+            t("notifications.failed_mark_read", "Failed to mark notification as read"),
         );
       }
     },
-    [service],
+    [service, t],
   );
 
   if (loading) {
@@ -155,12 +157,12 @@ export default function NotificationsPanel() {
           <Text
             className={`${isCompact ? "text-2xl" : "text-3xl"} font-extrabold text-card-foreground dark:text-card-foreground-dark`}
           >
-            Notifications
+            {t("notifications.title", "Notifications")}
           </Text>
           <Text
             className={`mt-2 ${isCompact ? "text-xs leading-5" : "text-sm leading-6"} text-muted-foreground dark:text-muted-foreground-dark`}
           >
-            Track unread alerts and your read history.
+            {t("notifications.subtitle", "Track unread alerts and your read history.")}
           </Text>
         </View>
 
@@ -177,7 +179,7 @@ export default function NotificationsPanel() {
             className={`mt-6 rounded-3xl bg-card dark:bg-card-dark ${isCompact ? "p-4" : "p-5"}`}
           >
             <Text className="text-base font-bold text-card-foreground dark:text-card-foreground-dark">
-              No notifications yet
+              {t("notifications.no_notifications", "No notifications yet")}
             </Text>
           </View>
         ) : (
@@ -186,12 +188,12 @@ export default function NotificationsPanel() {
               className={`mt-6 rounded-3xl bg-card dark:bg-card-dark ${isCompact ? "p-4" : "p-5"}`}
             >
               <Text className="text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
-                Unread ({unreadItems.length})
+                {t("notifications.unread_title", "Unread ({{count}})", { count: unreadItems.length })}
               </Text>
               <View className="mt-3 gap-3">
                 {unreadItems.length === 0 ? (
                   <Text className="text-sm text-muted-foreground dark:text-muted-foreground-dark">
-                    No unread notifications.
+                    {t("notifications.no_unread", "No unread notifications.")}
                   </Text>
                 ) : (
                   unreadItems.map((item) => {
@@ -210,7 +212,7 @@ export default function NotificationsPanel() {
                               {item.title}
                             </Text>
                             <Text className="text-[10px] uppercase font-bold text-blue-500 mt-1">
-                              New
+                              {t("notifications.new_badge", "New")}
                             </Text>
                           </View>
                           <Text className="mt-1 text-sm text-muted-foreground dark:text-muted-foreground-dark leading-5">
@@ -219,7 +221,7 @@ export default function NotificationsPanel() {
                           {rowNo ? (
                             <View className="mt-2 self-start bg-primary/10 dark:bg-primary-dark/20 px-3 py-1 rounded-full">
                               <Text className="text-xs font-bold text-primary dark:text-primary-dark uppercase">
-                                Row: {String(rowNo)}
+                                {t("notifications.row_label", "Row: {{row}}", { row: String(rowNo) })}
                               </Text>
                             </View>
                           ) : null}
@@ -233,7 +235,7 @@ export default function NotificationsPanel() {
                             >
                               <MaterialCommunityIcons name="check-all" size={14} color="#a1a1aa" className="mr-1" />
                               <Text className="text-xs font-bold text-muted-foreground dark:text-muted-foreground-dark ml-1">
-                                Mark Read
+                                {t("notifications.mark_read_button", "Mark Read")}
                               </Text>
                             </Pressable>
                           </View>
@@ -249,12 +251,12 @@ export default function NotificationsPanel() {
               className={`mt-4 rounded-3xl bg-card dark:bg-card-dark ${isCompact ? "p-4" : "p-5"}`}
             >
               <Text className="text-xs font-bold uppercase tracking-[2px] text-muted-foreground dark:text-muted-foreground-dark">
-                Read ({readItems.length})
+                {t("notifications.read_title", "Read ({{count}})", { count: readItems.length })}
               </Text>
               <View className="mt-3 gap-3">
                 {readItems.length === 0 ? (
                   <Text className="text-sm text-muted-foreground dark:text-muted-foreground-dark">
-                    No read notifications.
+                    {t("notifications.no_read", "No read notifications.")}
                   </Text>
                 ) : (
                   readItems.map((item) => {
@@ -277,7 +279,7 @@ export default function NotificationsPanel() {
                           {rowNo ? (
                             <View className="mt-2 self-start bg-border dark:bg-border-dark px-3 py-1 rounded-full">
                               <Text className="text-xs font-bold text-muted-foreground dark:text-muted-foreground-dark uppercase">
-                                Row: {String(rowNo)}
+                                {t("notifications.row_label", "Row: {{row}}", { row: String(rowNo) })}
                               </Text>
                             </View>
                           ) : null}

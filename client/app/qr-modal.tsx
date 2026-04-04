@@ -25,7 +25,7 @@ export default function QRModal() {
 
   const handleShare = async () => {
     try {
-      const residenceText = `${floor_no ? ` · Floor ${floor_no}` : ""}${room_no ? ` · Room ${room_no}` : ""}`;
+      const residenceText = `${floor_no ? ` · ${t("profile.floor", "Floor")} ${floor_no}` : ""}${room_no ? ` · ${t("profile.room", "Room")} ${room_no}` : ""}`;
       await Share.share({
         message: `${t("profile.qr_card_title", "WashOs Laundry Bag QR")}\n${name} · ${reg_no}${block ? ` · ${t("profile.hostel_block", "Block")} ${block}` : ""}${residenceText} · v${version}`,
       });
@@ -88,10 +88,10 @@ export default function QRModal() {
               </Text>
             ) : null}
             {floor_no ? (
-              <Text className="text-sm text-gray-500">Floor {floor_no}</Text>
+              <Text className="text-sm text-gray-500">{t("profile.floor", "Floor")} {floor_no}</Text>
             ) : null}
             {room_no ? (
-              <Text className="text-sm text-gray-500">Room {room_no}</Text>
+              <Text className="text-sm text-gray-500">{t("profile.room", "Room")} {room_no}</Text>
             ) : null}
             <View className="mt-2 rounded-full bg-primary-dark/10 px-3 py-1">
               <Text className="text-xs font-bold tracking-wider text-primary-dark">

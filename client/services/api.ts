@@ -10,6 +10,132 @@ import {
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://127.0.0.1:3001";
 
+// ─── Shared Types ───────────────────────────────────────────────────────────
+
+export type BagResponse = {
+  bag_id: string;
+  student_id: string;
+  reg_no: string;
+  name: string;
+  block?: string;
+  floor_no?: number;
+  room_no?: number;
+  qr_version: number;
+  qr_payload: string; // JSON string ready to render as QR
+  is_revoked: boolean;
+  last_rotated_at?: string;
+};
+
+export type StaffRatingSummaryResponse = {
+  avg_service_rating: number;
+  avg_handling_rating: number;
+  avg_overall_rating: number;
+  rated_query_count: number;
+};
+
+export type ActiveBookingResponse = {
+  booking: Record<string, any> | null;
+};
+
+export type BookingRecord = {
+  id: string;
+  status: string;
+  row_no?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type BookingListResponse = {
+  bookings: BookingRecord[];
+};
+
+export type BookingDetailResponse = {
+  booking: Record<string, any>;
+};
+
+export type BookingEventsResponse = {
+  events: Record<string, any>[];
+};
+
+export type QueryReplyRecord = {
+  id: string;
+  query_id: string;
+  replied_by_user_id: string;
+  message: string;
+  created_at?: string;
+};
+
+export type QueryRecord = {
+  id: string;
+  booking_id: string;
+  title: string;
+  description: string;
+  image_url?: string;
+  service_rating?: number;
+  handling_rating?: number;
+  status: "open" | "acknowledged" | "resolved" | "closed";
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type QueryListResponse = {
+  queries: QueryRecord[];
+};
+
+export type QueryDetailResponse = {
+  query: QueryRecord;
+  replies: QueryReplyRecord[];
+};
+
+export type IntakeScanResponse = {
+  message: string;
+  booking: {
+    booking_id: string;
+    status: string;
+    bag_id: string;
+    student_id: string;
+    reg_no: string;
+    name: string;
+  };
+};
+
+export type NotificationRecord = {
+  id: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  payload?: Record<string, any> | string;
+  read_at?: string;
+  created_at?: string;
+};
+
+export type NotificationListResponse = {
+  notifications: NotificationRecord[];
+};
+
+export type MachineRecord = {
+  id: string;
+  code: string;
+  machine_type: "washer" | "dryer";
+  is_active: boolean;
+};
+
+export type MachineListResponse = {
+  machines: MachineRecord[];
+};
+
+export type PickupVerifyResponse = {
+  verified: boolean;
+  booking: Record<string, any>;
+};
+
+export type StudentResidence = {
+  block?: string;
+  floor_no?: number;
+  room_no?: number;
+};
+
+
 const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -227,80 +353,7 @@ export const authService = {
 
 // ─── Student API ────────────────────────────────────────────────────────────
 
-export type BagResponse = {
-  bag_id: string;
-  student_id: string;
-  reg_no: string;
-  name: string;
-  block?: string;
-  floor_no?: number;
-  room_no?: number;
-  qr_version: number;
-  qr_payload: string; // JSON string ready to render as QR
-  is_revoked: boolean;
-  last_rotated_at?: string;
-};
 
-export type ActiveBookingResponse = {
-  booking: Record<string, any> | null;
-};
-
-export type BookingRecord = {
-  id: string;
-  status: string;
-  row_no?: string | null;
-  created_at?: string;
-  updated_at?: string;
-};
-
-export type BookingListResponse = {
-  bookings: BookingRecord[];
-};
-
-export type BookingDetailResponse = {
-  booking: Record<string, any>;
-};
-
-export type BookingEventsResponse = {
-  events: Record<string, any>[];
-};
-
-export type QueryReplyRecord = {
-  id: string;
-  query_id: string;
-  replied_by_user_id: string;
-  message: string;
-  created_at?: string;
-};
-
-export type QueryRecord = {
-  id: string;
-  booking_id: string;
-  title: string;
-  description: string;
-  image_url?: string;
-  service_rating?: number;
-  handling_rating?: number;
-  status: "open" | "acknowledged" | "resolved" | "closed";
-  created_at?: string;
-  updated_at?: string;
-};
-
-export type QueryListResponse = {
-  queries: QueryRecord[];
-};
-
-export type QueryDetailResponse = {
-  query: QueryRecord;
-  replies: QueryReplyRecord[];
-};
-
-export type StaffRatingSummaryResponse = {
-  avg_service_rating: number;
-  avg_handling_rating: number;
-  avg_overall_rating: number;
-  rated_query_count: number;
-};
 
 function normalizeMaybeText(value: unknown): string | undefined {
   if (typeof value === "string") {
@@ -353,53 +406,6 @@ function normalizeQueryDetailResponse(
   };
 }
 
-export type IntakeScanResponse = {
-  message: string;
-  booking: {
-    booking_id: string;
-    status: string;
-    bag_id: string;
-    student_id: string;
-    reg_no: string;
-    name: string;
-  };
-};
-
-export type NotificationRecord = {
-  id: string;
-  title: string;
-  message: string;
-  is_read: boolean;
-  payload?: Record<string, any> | string;
-  read_at?: string;
-  created_at?: string;
-};
-
-export type NotificationListResponse = {
-  notifications: NotificationRecord[];
-};
-
-export type MachineRecord = {
-  id: string;
-  code: string;
-  machine_type: "washer" | "dryer";
-  is_active: boolean;
-};
-
-export type MachineListResponse = {
-  machines: MachineRecord[];
-};
-
-export type PickupVerifyResponse = {
-  verified: boolean;
-  booking: Record<string, any>;
-};
-
-export type StudentResidence = {
-  block?: string;
-  floor_no?: number;
-  room_no?: number;
-};
 
 export const studentService = {
   // GET /api/student/me/bag — fetch bag only if it exists (returns null if none)

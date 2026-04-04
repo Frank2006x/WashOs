@@ -14,7 +14,17 @@
     "error": "त्रुटि",
     "rotate": "घुमाएं",
     "validation": "चेतावनी",
-    "success": "सफलता"
+    "success": "सफलता",
+    "statuses": {
+      "created": "ऑर्डर बनाया गया",
+      "dropped_off": "बैग जमा किया गया",
+      "washing": "धुलाई हो रही है",
+      "wash_done": "धुलाई समाप्त हुई",
+      "drying": "सुखाया जा रहा है",
+      "dry_done": "सुखाना समाप्त हुआ",
+      "ready_for_pickup": "पिकअप के लिए तैयार",
+      "collected": "संग्रहित"
+    }
   },
   "login": {
     "welcome": "वापसी पर स्वागत है",
@@ -43,7 +53,11 @@
     "err_required_regno": "छात्र पंजीकरण के लिए पंजीकरण संख्या आवश्यक है",
     "success_signup": "खाता बन गया। कृपया लॉग इन करें।",
     "err_auth_failed": "लॉग-इन विफल हुआ",
-    "err_try_again": "कृपया पुनः प्रयास करें"
+    "err_try_again": "कृपया पुनः प्रयास करें",
+    "email_example": "student1@washos.com",
+    "phone_example": "+91-7777777701",
+    "regno_example": "REG001",
+    "password_example": "password123"
   },
   "profile": {
     "logout": "लॉग आउट",
@@ -74,7 +88,25 @@
     "rotate_qr": "QR घुमाएं",
     "rotate_qr_desc": "यह आपके वर्तमान QR को रद्द करके एक नया QR कोड बना देगा। क्या आप जारी रखना चाहते हैं?",
     "err_rotate": "घुमाने में विफल",
-    "err_gen_qr": "QR जनरेट करने में विफल"
+    "err_gen_qr": "QR जनरेट करने में विफल",
+    "residence_info": "निवास की जानकारी",
+    "residence_desc": "अपना फ्लोर और रूम नंबर जोड़ें ताकि लॉन्ड्री डिलीवरी सही हो सके।",
+    "floor_label": "फ्लोर नंबर",
+    "room_label": "रूम नंबर",
+    "save_residence": "फ्लोर और रूम सेव करें",
+    "floor": "फ्लोर",
+    "room": "रूम",
+    "current_residence": "वर्तमान निवास",
+    "residence_updated": "फ्लोर और रूम अपडेट हो गया।",
+    "err_residence_floor": "कृपया एक वैध फ्लोर नंबर दर्ज करें।",
+    "err_residence_room": "कृपया एक वैध रूम नंबर दर्ज करें।",
+    "err_save_residence": "निवास सेव करने में विफल।",
+    "avg_service_rating": "औसत सेवा रेटिंग",
+    "avg_handling_rating": "औसत हैंडलिंग रेटिंग",
+    "avg_overall_rating": "कुल रेटिंग",
+    "rating_count": "({{count}} प्रश्न)",
+    "role_student": "छात्र",
+    "role_staff": "लांड्री स्टाफ"
   },
   "orders": {
     "title": "आपके ऑर्डर्स",
@@ -108,5 +140,87 @@
     "invalid_json_data": "स्कैन किए गए QR कोड में मान्य JSON डेटा नहीं है।",
     "scan_again": "↩ फिर से स्कैन करें",
     "null_value": "शून्य"
+  },
+  "booking": {
+    "failed_load": "बुकिंग लोड करने में विफल",
+    "pickup_success": "पिकअप पूरा हुआ और ऑर्डर ले लिया गया।",
+    "pickup_failed": "पिकअप पूरा करने में विफल।",
+    "tracking_details": "ट्रैकिंग विवरण",
+    "order_number": "ऑर्डर #",
+    "order_subtitle": "पूर्ण स्थिति और विस्तृत समयरेखा।",
+    "assigned_row": "सौंपा गया स्थान: {{row}}",
+    "loading_tracking": "ट्रैकिंग डेटा लोड हो रहा है...",
+    "checkout_title": "चेकआउट और पिकअप",
+    "checkout_desc": "कब्जा सत्यापित करने और चेकआउट को अंतिम रूप देने के लिए अपने लांड्री बैग QR को स्कैन करें।",
+    "checkout_scan_title": "चेकआउट स्कैन",
+    "raw_log_title": "कच्चा इवेंट लॉग",
+    "no_events": "अभी तक कोई इवेंट रिकॉर्ड नहीं किया गया है।",
+    "machine_label": "मशीन: {{code}}",
+    "staff_hint": "स्टाफ चरण परिवर्तन केवल स्कैन-मात्र हैं। इनटेक, वॉश, ड्राई और रेडी चरणों के लिए स्कैन सेंटर का उपयोग करें।",
+    "err_id_not_found": "पिकअप सत्यापन से बुकिंग आईडी नहीं मिली"
+  },
+  "tracking": {
+    "order_placed": "ऑर्डर दिया गया",
+    "washing": "धुलाई हो रही है",
+    "drying": "सुखाया जा रहा है",
+    "ready": "तैयार है",
+    "collected": "संग्रहित",
+    "machine": "मशीन: {{code}}"
+  },
+  "notifications": {
+    "title": "सूचनाएं",
+    "subtitle": "अपठित अलर्ट और अपने पढ़ने के इतिहास को ट्रैक करें।",
+    "failed_load": "सूचनाएं लोड करने में विफल",
+    "failed_mark_read": "सूचना को पढ़ा हुआ चिह्नित करने में विफल",
+    "no_notifications": "अभी तक कोई सूचना नहीं है",
+    "unread_title": "अपठित ({{count}})",
+    "no_unread": "कोई अपठित सूचना नहीं है।",
+    "new_badge": "नया",
+    "row_label": "रो: {{row}}",
+    "mark_read_button": "पढ़ा हुआ चिह्नित करें",
+    "read_title": "पढ़े गए ({{count}})",
+    "no_read": "कोई पढ़ी गई सूचना नहीं है।"
+  },
+  "staff": {
+    "home_title": "लांड्री स्टाफ",
+    "home_desc": "स्कैन सेंटर पर जाने के लिए नीचे दी गई कार्रवाई चुनें।",
+    "scan_center_title": "स्कैन सेंटर",
+    "scan_center_subtitle": "चरण चुनें, आवश्यक इनपुट पूरा करें, फिर बैग QR स्कैन करें।",
+    "scan_center_button": "स्कैन सेंटर खोलें",
+    "workflow_phases": "वर्कफ़्लो चरण",
+    "phase_rule": "चरण नियम",
+    "expected_status": "अपेक्षित स्थिति: {{status}}",
+    "select_machine_type": "{{type}} मशीन चुनें",
+    "no_machines_available": "कोई {{type}} मशीन उपलब्ध नहीं है।",
+    "enter_row": "शेल्फ/रो दर्ज करें",
+    "awaiting_scan": "{{phase}} स्कैन की प्रतीक्षा है...",
+    "unlock_scanner_machine": "स्कैनर अनलॉक करने के लिए पहले एक मशीन चुनें",
+    "unlock_scanner_row": "स्कैनर अनलॉक करने के लिए पहले शेल्फ/रो दर्ज करें",
+    "scan_success_label": "स्कैन सफल",
+    "scan_failed_label": "स्कैन विफल",
+    "machine_load_failed": "मशीन सूची लोड करने में विफल।",
+    "intake_success": "बैग इनटेक सफलतापूर्वक रिकॉर्ड किया गया।",
+    "intake_failed": "बैग इनटेक रिकॉर्ड करने में विफल।",
+    "wash_started": "धुलाई शुरू हुई।",
+    "wash_finished": "धुलाई समाप्त हुई।",
+    "dry_started": "सुखाना शुरू हुआ।",
+    "dry_finished": "सुखाना समाप्त हुआ।",
+    "ready_success": "पिकअप के लिए तैयार चिह्नित।",
+    "phases": {
+      "intake": { "label": "इनटेक", "desc": "बैग इकट्ठा करें, यात्रा शुरू करें" },
+      "wash_start": { "label": "वॉश स्टार्ट", "desc": "वॉशर आवंटित करें" },
+      "wash_finish": { "label": "वॉश फिनिश", "desc": "वॉश चक्र पूरा करें" },
+      "dry_start": { "label": "ड्राई स्टार्ट", "desc": "ड्रायर आवंटित करें" },
+      "dry_finish": { "label": "ड्राई फिनिश", "desc": "ड्राई चक्र पूरा करें" },
+      "ready": { "label": "रेडी", "desc": "पिकअप रो आवंटित करें" }
+    },
+    "phase_hints": {
+      "intake": { "expectedStatus": "बैग के लिए कोई सक्रिय बुकिंग नहीं", "action": "बुकिंग बनाने और बैग जमा करने के लिए छात्र का बैग QR स्कैन करें।", "note": "केवल पहला चरण।" },
+      "wash_start": { "expectedStatus": "dropped_off", "action": "वॉशर मशीन चुनें फिर बैग QR स्कैन करें।", "note": "वॉश रन शुरू करता है और बुकिंग को 'धुलाई' के रूप में चिह्नित करता है।" },
+      "wash_finish": { "expectedStatus": "washing", "action": "वही वॉशर मशीन चुनें फिर बैग QR स्कैन करें।", "note": "वॉश रन खत्म करता है और बुकिंग को 'wash_done' के रूप में चिह्नित करता है।" },
+      "dry_start": { "expectedStatus": "wash_done", "action": "ड्रायर मशीन चुनें फिर बैग QR स्कैन करें।", "note": "ड्राई रन शुरू करता है और बुकिंग को 'सूखना' के रूप में चिह्नित करता है।" },
+      "dry_finish": { "expectedStatus": "drying", "action": "वही ड्रायर मशीन चुनें फिर बैग QR स्कैन करें।", "note": "ड्राई रन खत्म करता है और बुकिंग को 'dry_done' के रूप में चिह्नित करता है।" },
+      "ready": { "expectedStatus": "dry_done", "action": "शेल्फ/रो दर्ज करें और बैग QR स्कैन करें।", "note": "बुकिंग को 'ready_for_pickup' चिह्नित करता है और छात्र को सूचित करता है।" }
+    }
   }
 }
