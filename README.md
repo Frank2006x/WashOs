@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img src="WashOs/client/assets/images/icon.png" alt="WashOS Logo" width="120" height="120" />
+  <img src="client/assets/images/icon.png" alt="WashOS Logo" width="120" height="120" />
 
   # WashOS
   ### 🚀 Smart Laundry Coordination System for Modern Hostels
