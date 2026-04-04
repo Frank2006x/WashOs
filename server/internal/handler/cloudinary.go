@@ -25,18 +25,35 @@ type cloudinaryUploadResponse struct {
 	} `json:"error"`
 }
 
+func readEnvTrimmed(keys ...string) string {
+	for _, key := range keys {
+		value := strings.TrimSpace(os.Getenv(key))
+		value = strings.Trim(value, "\"'")
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func cloudinarySignature(toSign string, apiSecret string) string {
 	hash := sha1.Sum([]byte(toSign + apiSecret))
 	return hex.EncodeToString(hash[:])
 }
 
 func uploadImageFileToCloudinary(ctx context.Context, fileHeader *multipart.FileHeader) (string, error) {
-	cloudName := strings.TrimSpace(os.Getenv("CLOUDINARY_CLOUD_NAME"))
-	apiKey := strings.TrimSpace(os.Getenv("CLOUDINARY_API_KEY"))
-	apiSecret := strings.TrimSpace(os.Getenv("CLOUDINARY_API_SECRET"))
+	cloudName := readEnvTrimmed("CLOUDINARY_CLOUD_NAME", "CLOUDINARY_CLOUD", "CLOUD_NAME")
+	apiKey := readEnvTrimmed("CLOUDINARY_API_KEY")
+	apiSecret := readEnvTrimmed("CLOUDINARY_API_SECRET")
 
 	if cloudName == "" || apiKey == "" || apiSecret == "" {
 		return "", fiber.NewError(fiber.StatusInternalServerError, "cloudinary is not configured: set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET")
+	}
+	if strings.EqualFold(cloudName, "root") {
+		return "", fiber.NewError(
+			fiber.StatusInternalServerError,
+			"cloudinary is misconfigured: CLOUDINARY_CLOUD_NAME cannot be 'root'; use your actual cloud name from Dashboard -> Settings -> API Environment",
+		)
 	}
 	if fileHeader == nil {
 		return "", fiber.NewError(fiber.StatusBadRequest, "image file is required")

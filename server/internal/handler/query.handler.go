@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"errors"
 	"encoding/json"
+	"errors"
 	"net/url"
 	"strconv"
 	"strings"
@@ -10,8 +10,8 @@ import (
 	dbgen "Frank2006x/washos/internal/repository"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 

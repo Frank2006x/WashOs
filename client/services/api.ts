@@ -265,6 +265,87 @@ export type BookingEventsResponse = {
   events: Record<string, any>[];
 };
 
+export type QueryReplyRecord = {
+  id: string;
+  query_id: string;
+  replied_by_user_id: string;
+  message: string;
+  created_at?: string;
+};
+
+export type QueryRecord = {
+  id: string;
+  booking_id: string;
+  title: string;
+  description: string;
+  image_url?: string;
+  service_rating?: number;
+  handling_rating?: number;
+  status: "open" | "acknowledged" | "resolved" | "closed";
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type QueryListResponse = {
+  queries: QueryRecord[];
+};
+
+export type QueryDetailResponse = {
+  query: QueryRecord;
+  replies: QueryReplyRecord[];
+};
+
+function normalizeMaybeText(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || undefined;
+  }
+
+  if (value && typeof value === "object") {
+    const maybe = value as {
+      String?: unknown;
+      string?: unknown;
+      Valid?: unknown;
+    };
+    if (typeof maybe.String === "string") {
+      const trimmed = maybe.String.trim();
+      return trimmed || undefined;
+    }
+    if (typeof maybe.string === "string") {
+      const trimmed = maybe.string.trim();
+      return trimmed || undefined;
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeQueryRecord(input: any): QueryRecord {
+  return {
+    ...input,
+    image_url: normalizeMaybeText(input?.image_url),
+  } as QueryRecord;
+}
+
+function normalizeQueryListResponse(
+  data: QueryListResponse,
+): QueryListResponse {
+  return {
+    ...data,
+    queries: (data?.queries || []).map((q) => normalizeQueryRecord(q)),
+  };
+}
+
+function normalizeQueryDetailResponse(
+  data: QueryDetailResponse,
+): QueryDetailResponse {
+  return {
+    ...data,
+    query: normalizeQueryRecord(data?.query),
+    replies: data?.replies || [],
+  };
+}
+
 export type IntakeScanResponse = {
   message: string;
   booking: {
@@ -434,6 +515,86 @@ export const studentService = {
   async markNotificationRead(notificationID: string): Promise<void> {
     await api.patch(`/api/notifications/${notificationID}/read`);
   },
+
+  async raiseQueryWithImage(payload: {
+    booking_id: string;
+    title: string;
+    description: string;
+    service_rating?: number;
+    handling_rating?: number;
+    image?: {
+      uri: string;
+      name?: string;
+      type?: string;
+    };
+    image_url?: string;
+  }): Promise<{ query: QueryRecord }> {
+    if (!payload.image && !payload.image_url) {
+      throw new Error("image or image_url is required");
+    }
+
+    if (payload.image) {
+      const form = new FormData();
+      form.append("booking_id", payload.booking_id);
+      form.append("title", payload.title);
+      form.append("description", payload.description);
+
+      if (typeof payload.service_rating === "number") {
+        form.append("service_rating", String(payload.service_rating));
+      }
+      if (typeof payload.handling_rating === "number") {
+        form.append("handling_rating", String(payload.handling_rating));
+      }
+
+      form.append("image", {
+        uri: payload.image.uri,
+        name: payload.image.name || `query-${Date.now()}.jpg`,
+        type: payload.image.type || "image/jpeg",
+      } as any);
+
+      const res = await api.post<{ query: QueryRecord }>(
+        "/api/student/queries",
+        form,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+      return { ...res.data, query: normalizeQueryRecord(res.data?.query) };
+    }
+
+    const res = await api.post<{ query: QueryRecord }>("/api/student/queries", {
+      booking_id: payload.booking_id,
+      title: payload.title,
+      description: payload.description,
+      image_url: payload.image_url,
+      service_rating: payload.service_rating,
+      handling_rating: payload.handling_rating,
+    });
+    return { ...res.data, query: normalizeQueryRecord(res.data?.query) };
+  },
+
+  async listMyQueries(limit = 20, offset = 0): Promise<QueryListResponse> {
+    const res = await api.get<QueryListResponse>("/api/student/queries", {
+      params: { limit, offset },
+    });
+    return normalizeQueryListResponse(res.data);
+  },
+
+  async getMyQuery(queryID: string): Promise<QueryDetailResponse> {
+    const res = await api.get<QueryDetailResponse>(
+      `/api/student/queries/${queryID}`,
+    );
+    return normalizeQueryDetailResponse(res.data);
+  },
+
+  async updateMyQueryRating(
+    queryID: string,
+    ratings: { service_rating?: number; handling_rating?: number },
+  ): Promise<{ query: QueryRecord }> {
+    const res = await api.patch<{ query: QueryRecord }>(
+      `/api/student/queries/${queryID}/rating`,
+      ratings,
+    );
+    return { ...res.data, query: normalizeQueryRecord(res.data?.query) };
+  },
 };
 
 export const staffService = {
@@ -569,6 +730,52 @@ export const staffService = {
 
   async markNotificationRead(notificationID: string): Promise<void> {
     await api.patch(`/api/notifications/${notificationID}/read`);
+  },
+
+  async listQueries(limit = 20, offset = 0): Promise<QueryListResponse> {
+    const res = await api.get<QueryListResponse>("/api/staff/queries", {
+      params: { limit, offset },
+    });
+    return normalizeQueryListResponse(res.data);
+  },
+
+  async getQuery(queryID: string): Promise<QueryDetailResponse> {
+    const res = await api.get<QueryDetailResponse>(
+      `/api/staff/queries/${queryID}`,
+    );
+    return normalizeQueryDetailResponse(res.data);
+  },
+
+  async acknowledgeQuery(queryID: string): Promise<{ query: QueryRecord }> {
+    const res = await api.post<{ query: QueryRecord }>(
+      `/api/staff/queries/${queryID}/acknowledge`,
+    );
+    return { ...res.data, query: normalizeQueryRecord(res.data?.query) };
+  },
+
+  async replyQuery(
+    queryID: string,
+    message: string,
+  ): Promise<{ query: QueryRecord; reply: QueryReplyRecord }> {
+    const res = await api.post<{ query: QueryRecord; reply: QueryReplyRecord }>(
+      `/api/staff/queries/${queryID}/reply`,
+      { message },
+    );
+    return { ...res.data, query: normalizeQueryRecord(res.data?.query) };
+  },
+
+  async resolveQuery(queryID: string): Promise<{ query: QueryRecord }> {
+    const res = await api.post<{ query: QueryRecord }>(
+      `/api/staff/queries/${queryID}/resolve`,
+    );
+    return { ...res.data, query: normalizeQueryRecord(res.data?.query) };
+  },
+
+  async closeQuery(queryID: string): Promise<{ query: QueryRecord }> {
+    const res = await api.post<{ query: QueryRecord }>(
+      `/api/staff/queries/${queryID}/close`,
+    );
+    return { ...res.data, query: normalizeQueryRecord(res.data?.query) };
   },
 };
 
