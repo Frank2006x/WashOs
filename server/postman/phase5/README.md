@@ -1,6 +1,7 @@
 # Phase 5: Hardening Test Suite
 
 This suite validates Phase 5 hardening goals:
+
 - Optional overview endpoints
 - Idempotency of scan events
 - Strict transition guards

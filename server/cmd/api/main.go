@@ -44,6 +44,7 @@ func main() {
 	router.SetupAuthRoutes(app, Handler)
 	router.SetupStudentRoutes(app, Handler)
 	router.SetupPhase2Routes(app, Handler)
+	router.SetupQueryRoutes(app, Handler)
 
 	app.Get("/", func(c fiber.Ctx) error {
 		return c.JSON(fiber.Map{

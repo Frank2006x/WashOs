@@ -212,7 +212,14 @@ func (h *Handler) StaffSignUp(c fiber.Ctx) error {
 
 	service, err := h.Queries.GetFirstLaundryService(c.Context())
 	if err != nil {
-		return c.Status(fiber.StatusPreconditionFailed).JSON(fiber.Map{"error": "No laundry service configured"})
+		if err == pgx.ErrNoRows {
+			service, err = h.Queries.EnsureDefaultLaundryService(c.Context(), "WashOs Main Laundry")
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to initialize default laundry service"})
+			}
+		} else {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load laundry service"})
+		}
 	}
 
 	email := body.Email

@@ -3,6 +3,8 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Destructive reset for V1-only schema.
 DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS push_tokens CASCADE;
+DROP TABLE IF EXISTS query_replies CASCADE;
+DROP TABLE IF EXISTS queries CASCADE;
 DROP TABLE IF EXISTS workflow_events CASCADE;
 DROP TABLE IF EXISTS machine_runs CASCADE;
 DROP TABLE IF EXISTS machines CASCADE;
@@ -14,6 +16,7 @@ DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS laundry_services CASCADE;
 
 DROP TYPE IF EXISTS workflow_event_type CASCADE;
+DROP TYPE IF EXISTS query_status CASCADE;
 DROP TYPE IF EXISTS machine_run_status CASCADE;
 DROP TYPE IF EXISTS machine_type CASCADE;
 DROP TYPE IF EXISTS booking_status CASCADE;
@@ -56,7 +59,19 @@ CREATE TYPE workflow_event_type AS ENUM (
   'dry_finished',
   'marked_ready',
   'collected',
-  'action_rejected'
+  'action_rejected',
+  'query_raised',
+  'query_acknowledged',
+  'query_replied',
+  'query_resolved',
+  'query_closed'
+);
+
+CREATE TYPE query_status AS ENUM (
+  'open',
+  'acknowledged',
+  'resolved',
+  'closed'
 );
 
 CREATE TABLE users (
@@ -201,6 +216,32 @@ CREATE TABLE notifications (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE queries (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  raised_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  assigned_staff_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  image_url TEXT,
+  service_rating INT CHECK (service_rating BETWEEN 1 AND 5),
+  handling_rating INT CHECK (handling_rating BETWEEN 1 AND 5),
+  status query_status NOT NULL DEFAULT 'open',
+  resolved_at TIMESTAMPTZ,
+  closed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE query_replies (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  query_id UUID NOT NULL REFERENCES queries(id) ON DELETE CASCADE,
+  replied_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -245,6 +286,10 @@ CREATE TRIGGER push_tokens_set_updated_at
 BEFORE UPDATE ON push_tokens
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+CREATE TRIGGER queries_set_updated_at
+BEFORE UPDATE ON queries
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- Scalability and hot-path indexes.
 CREATE INDEX idx_students_user_id ON students(user_id);
 CREATE INDEX idx_laundry_staff_user_id ON laundry_staff(user_id);
@@ -272,3 +317,8 @@ CREATE INDEX idx_workflow_events_student_created ON workflow_events(student_id, 
 
 CREATE INDEX idx_push_tokens_user_active ON push_tokens(user_id, is_active);
 CREATE INDEX idx_notifications_recipient_read_created ON notifications(recipient_user_id, is_read, created_at DESC);
+CREATE INDEX idx_queries_student_created ON queries(student_id, created_at DESC);
+CREATE INDEX idx_queries_status_created ON queries(status, created_at DESC);
+CREATE INDEX idx_queries_booking ON queries(booking_id);
+CREATE INDEX idx_queries_raised_by_user ON queries(raised_by_user_id, created_at DESC);
+CREATE INDEX idx_query_replies_query_created ON query_replies(query_id, created_at ASC);
